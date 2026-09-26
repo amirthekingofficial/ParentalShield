@@ -1,0 +1,903 @@
+<ui:FluentWindow x:Class="ParentalShield.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:local="clr-namespace:ParentalShield"
+        mc:Ignorable="d"
+        Title="Parental Shield - Windows Parental Controls" 
+        Height="730" Width="1080" MinHeight="640" MinWidth="920"
+        WindowStartupLocation="CenterScreen"
+        WindowBackdropType="Mica"
+        ExtendsContentIntoTitleBar="True"
+        Background="{DynamicResource ApplicationBackgroundBrush}">
+
+    <Window.Resources>
+        <!-- Windows 11 Fluent Navigation RadioButton Style with Active Left Accent Pill -->
+        <Style x:Key="FluentNavButtonStyle" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="btnBorder" CornerRadius="8" Padding="10,9" Background="Transparent" BorderThickness="1" BorderBrush="Transparent" SnapsToDevicePixels="True">
+                            <Grid>
+                                <Rectangle x:Name="activePill" Width="3" Height="16" RadiusX="1.5" RadiusY="1.5" Fill="{DynamicResource SystemAccentColorPrimaryBrush}" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}"/>
+                                <Setter TargetName="btnBorder" Property="BorderBrush" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                                <Setter TargetName="btnBorder" Property="BorderBrush" Value="{DynamicResource SystemAccentColorPrimaryBrush}"/>
+                                <Setter TargetName="activePill" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <!-- MAIN LAYOUT -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="64"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- WINDOW TOPBAR (NATIVE FLUENT TITLEBAR WITH SYSTEM CAPTION CONTROLS) -->
+            <ui:TitleBar Grid.Row="0" Title="Parental Shield - Windows Parental Controls"/>
+
+            <!-- TOP HEADER (Frosted Glass) -->
+            <Border Grid.Row="1" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                <Grid Margin="20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- BRAND LOGO -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource SystemAccentColorPrimaryBrush}" Margin="0,0,12,0">
+                            <Path Data="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" Fill="#FFFFFF" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Parental Shield" FontWeight="Bold" FontSize="17" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="Family protection for this PC" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- MASTER STATUS INDICATOR PILL -->
+                    <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="18" Padding="14,6" x:Name="MasterStatusPill" Background="#1A10B981" BorderBrush="#4010B981" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse x:Name="MasterStatusDot" Width="9" Height="9" Fill="{DynamicResource AccentSuccess}" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="MasterStatusText" Text="Active" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentSuccess}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- HEADER CONTROLS (ADMIN BADGE, LOCK STATUS) -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Admin Badge -->
+                        <Border x:Name="BadgeAdmin" CornerRadius="6" Padding="10,5" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="#4010B981" BorderThickness="1" Margin="0,0,12,0" Cursor="Hand" MouseLeftButtonUp="BadgeAdmin_Click">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path x:Name="BadgeAdminIcon" Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Fill="{DynamicResource AccentSuccess}" Width="12" Height="12" Stretch="Uniform" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="TxtAdminStatus" Text="Administrator" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentSuccess}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Parent Lock/Unlock Button -->
+                        <Button x:Name="BtnLockStatus" Style="{StaticResource OutlineButtonStyle}" Height="34" Padding="12,0" Click="BtnLockStatus_Click">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtLockIcon" Text="🔒" FontSize="13" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="TxtLockLabel" Text="Settings locked" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource AccentDanger}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ELEVATION WARNING BANNER -->
+            <Border x:Name="BannerElevationWarning" Grid.Row="2" Background="#26F59E0B" BorderBrush="#4DF59E0B" BorderThickness="0,0,0,1" Padding="18,10" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="⚠️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Administrator permissions needed" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="To block websites and close restricted apps across all user accounts, restart Parental Shield as an administrator." FontSize="11.5" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Restart as administrator" Style="{StaticResource PrimaryButtonStyle}" Height="32" Padding="14,0" FontSize="12" Click="BtnElevate_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- APP BODY (SIDEBAR & CONTENT) -->
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- SIDEBAR NAVIGATION -->
+                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+                    <Grid Margin="12,16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- NAV BUTTONS -->
+                        <StackPanel Grid.Row="0">
+                            <RadioButton x:Name="NavDashboard" Style="{StaticResource FluentNavButtonStyle}" IsChecked="True" Checked="NavRadio_Checked">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="📊" FontSize="14" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Dashboard" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavWebsites" Style="{StaticResource FluentNavButtonStyle}" Checked="NavRadio_Checked">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🌐" FontSize="14" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Websites" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <Border HorizontalAlignment="Right" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="7,2">
+                                        <TextBlock x:Name="BadgeWebsitesCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavApps" Style="{StaticResource FluentNavButtonStyle}" Checked="NavRadio_Checked">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="💻" FontSize="14" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Applications" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <Border HorizontalAlignment="Right" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="7,2">
+                                        <TextBlock x:Name="BadgeAppsCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavLogs" Style="{StaticResource FluentNavButtonStyle}" Checked="NavRadio_Checked">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="📜" FontSize="14" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Activity log" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <Border HorizontalAlignment="Right" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="7,2">
+                                        <TextBlock x:Name="BadgeLogsCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavSettings" Style="{StaticResource FluentNavButtonStyle}" Checked="NavRadio_Checked">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="⚙️" FontSize="14" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Settings &amp; PIN" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+
+                        <!-- SIDEBAR FOOTER -->
+                        <Border Grid.Row="2" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="🔒 PIN protected" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                <TextBlock Text="Settings stay locked until you enter your PIN" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- MAIN CONTENT AREA -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="24">
+                    <Grid>
+                        <!-- TAB 1: DASHBOARD -->
+                        <StackPanel x:Name="PanelDashboard" Visibility="Visible">
+                            <!-- HERO CARD -->
+                            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,20">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border x:Name="HeroShieldBorder" Width="54" Height="54" CornerRadius="12" Background="#2610B981" Margin="0,0,18,0">
+                                            <Path Data="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" Fill="{DynamicResource AccentSuccess}" Width="26" Height="26" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="HeroShieldTitle" Text="Protection is on" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock x:Name="HeroShieldSubtitle" Text="Blocking adult websites and restricted applications" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- MASTER PROTECTION TOGGLE -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Main switch" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                        <CheckBox x:Name="ToggleMasterProtection" IsChecked="True" Click="ToggleMasterProtection_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- METRICS 3-GRID -->
+                            <Grid Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="44" Height="44" CornerRadius="10" Background="#263B82F6" Margin="0,0,14,0">
+                                            <TextBlock Text="🌐" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock x:Name="MetricWebsitesCount" Text="0" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock Text="Blocked websites" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Margin="5,0,5,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="44" Height="44" CornerRadius="10" Background="#26A855F7" Margin="0,0,14,0">
+                                            <TextBlock Text="💻" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock x:Name="MetricAppsCount" Text="0" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock Text="Blocked apps" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}" Margin="10,0,0,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="44" Height="44" CornerRadius="10" Background="#26EF4444" Margin="0,0,14,0">
+                                            <TextBlock Text="🛑" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock x:Name="MetricInterceptsCount" Text="0" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock Text="Times blocked" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- SPLIT: CATEGORIES & RECENT LOGS -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.1*"/>
+                                    <ColumnDefinition Width="0.9*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- LEFT: CURATED TOGGLES -->
+                                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Built-in filters" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                        <TextBlock Text="Blocks these categories across all web browsers" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,16"/>
+
+                                        <!-- Adult Content Toggle -->
+                                        <Border Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Adult content &amp; websites" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="Blocks over 85 common adult websites" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <CheckBox x:Name="ToggleAdultWeb" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Gambling Toggle -->
+                                        <Border Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Gambling &amp; betting" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="Blocks online casinos and sports betting" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <CheckBox x:Name="ToggleGambling" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Mature Apps Toggle -->
+                                        <Border Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Mature applications" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="Closes torrent programs and random video chats" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <CheckBox x:Name="ToggleMatureApps" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- RIGHT: RECENT INTERCEPTIONS -->
+                                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Margin="12,0,0,0">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,12">
+                                            <TextBlock Text="Recent activity" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <Button Content="See all" HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" Cursor="Hand" FontWeight="SemiBold" FontSize="12" Click="BtnViewAllLogs_Click"/>
+                                        </Grid>
+                                        <ListBox x:Name="ListDashboardRecentLogs" Background="Transparent" BorderThickness="0" Height="220" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- TAB 2: WEBSITES -->
+                        <StackPanel x:Name="PanelWebsites" Visibility="Collapsed">
+                            <!-- ADD WEBSITE CARD -->
+                            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="Add a website to block" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    <TextBlock Text="Enter a domain to block on Chrome, Edge, and other browsers" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,14"/>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="180"/>
+                                            <ColumnDefinition Width="130"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBox x:Name="TxtNewDomain" Style="{StaticResource ModernTextBoxStyle}" Grid.Column="0" Margin="0,0,10,0" KeyDown="TxtNewDomain_KeyDown"/>
+                                        <ComboBox x:Name="CmbNewDomainCategory" Grid.Column="1" Height="38" VerticalContentAlignment="Center" Margin="0,0,10,0">
+                                            <ComboBoxItem Content="Custom Block" IsSelected="True"/>
+                                            <ComboBoxItem Content="Social Media"/>
+                                            <ComboBoxItem Content="Gaming"/>
+                                            <ComboBoxItem Content="Streaming &amp; Video"/>
+                                            <ComboBoxItem Content="Mature &amp; 18+"/>
+                                        </ComboBox>
+                                        <Button Content="+ Block site" Style="{StaticResource PrimaryButtonStyle}" Grid.Column="2" Click="BtnAddWebsite_Click"/>
+                                    </Grid>
+
+                                    <!-- Quick Presets -->
+                                    <WrapPanel>
+                                        <TextBlock Text="Quick add: " FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Button Content="+ TikTok" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddSite_Click" Tag="tiktok.com|Social Media"/>
+                                        <Button Content="+ Instagram" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddSite_Click" Tag="instagram.com|Social Media"/>
+                                        <Button Content="+ Twitter / X" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddSite_Click" Tag="x.com|Social Media"/>
+                                        <Button Content="+ Reddit" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddSite_Click" Tag="reddit.com|Social Media"/>
+                                        <Button Content="+ Twitch" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddSite_Click" Tag="twitch.tv|Streaming &amp; Video"/>
+                                        <Button Content="+ Roblox Web" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddSite_Click" Tag="roblox.com|Gaming"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- WEBSITES LIST CARD -->
+                            <Border Style="{StaticResource CardBorderStyle}">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,14">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Blocked websites" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock Text="Tip: If you opened a site recently, close and reopen the browser tab to see the block." FontSize="11.5" Foreground="{DynamicResource AccentWarning}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="TxtSearchWebsites" Style="{StaticResource ModernTextBoxStyle}" Width="240" HorizontalAlignment="Right" TextChanged="TxtSearchWebsites_TextChanged"/>
+                                    </Grid>
+
+                                    <!-- 18+ Builtin summary bar -->
+                                    <Border Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Background="#26EF4444" CornerRadius="6" Padding="6,2" Margin="0,0,10,0">
+                                                    <TextBlock Text="Adult filters" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AccentDanger}"/>
+                                                </Border>
+                                                <TextBlock Text="Over 85 common adult websites (Pornhub, XVideos, OnlyFans, etc.)" FontSize="12.5" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Text="Active" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource AccentSuccess}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Custom Websites Items List -->
+                                    <ListBox x:Name="ListCustomWebsites" Background="Transparent" BorderThickness="0" MaxHeight="400" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- TAB 3: APPLICATIONS -->
+                        <StackPanel x:Name="PanelApps" Visibility="Collapsed">
+                            <!-- ADD APP CARD -->
+                            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="Add an app to block" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    <TextBlock Text="Parental Shield closes these applications as soon as they start" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,14"/>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                        <Button Content="Select from open apps..." Style="{StaticResource OutlineButtonStyle}" Margin="0,0,10,0" Click="BtnScanRunningApps_Click"/>
+                                        <Button Content="Choose .exe file..." Style="{StaticResource OutlineButtonStyle}" Click="BtnBrowseExe_Click"/>
+                                    </StackPanel>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="120"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBox x:Name="TxtNewAppName" Style="{StaticResource ModernTextBoxStyle}" Grid.Column="0" Margin="0,0,10,0"/>
+                                        <TextBox x:Name="TxtNewAppProcess" Style="{StaticResource ModernTextBoxStyle}" Grid.Column="1" Margin="0,0,10,0" KeyDown="TxtNewAppProcess_KeyDown"/>
+                                        <ComboBox x:Name="CmbNewAppCategory" Grid.Column="2" Height="38" VerticalContentAlignment="Center" Margin="0,0,10,0">
+                                            <ComboBoxItem Content="Custom App" IsSelected="True"/>
+                                            <ComboBoxItem Content="Gaming"/>
+                                            <ComboBoxItem Content="Social &amp; Chat"/>
+                                            <ComboBoxItem Content="Distraction"/>
+                                            <ComboBoxItem Content="Mature &amp; 18+"/>
+                                        </ComboBox>
+                                        <Button Content="+ Block app" Style="{StaticResource PrimaryButtonStyle}" Grid.Column="3" Click="BtnAddApp_Click"/>
+                                    </Grid>
+
+                                    <!-- Quick App Presets -->
+                                    <WrapPanel>
+                                        <TextBlock Text="Quick add: " FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Button Content="+ Roblox" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddApp_Click" Tag="Roblox Player|RobloxPlayerBeta.exe|Gaming"/>
+                                        <Button Content="+ Steam" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddApp_Click" Tag="Steam|steam.exe|Gaming"/>
+                                        <Button Content="+ Epic Games" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddApp_Click" Tag="Epic Games Launcher|EpicGamesLauncher.exe|Gaming"/>
+                                        <Button Content="+ Discord" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddApp_Click" Tag="Discord|Discord.exe|Social / Chat"/>
+                                        <Button Content="+ Telegram" Style="{StaticResource OutlineButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,4" Click="QuickAddApp_Click" Tag="Telegram|Telegram.exe|Social / Chat"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- APPS LIST CARD -->
+                            <Border Style="{StaticResource CardBorderStyle}">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,14">
+                                        <TextBlock Text="Blocked apps" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="TxtSearchApps" Style="{StaticResource ModernTextBoxStyle}" Width="240" HorizontalAlignment="Right" TextChanged="TxtSearchApps_TextChanged"/>
+                                    </Grid>
+
+                                    <ListBox x:Name="ListBlockedApps" Background="Transparent" BorderThickness="0" MaxHeight="420" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- TAB 4: ACTIVITY LOG -->
+                        <StackPanel x:Name="PanelLogs" Visibility="Collapsed">
+                            <Border Style="{StaticResource CardBorderStyle}">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,16">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Activity log" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock Text="Recent blocked apps, websites, and security events" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Content="Clear log" Style="{StaticResource DangerOutlineButtonStyle}" HorizontalAlignment="Right" Click="BtnClearLogs_Click"/>
+                                    </Grid>
+
+                                    <!-- Filter Pills -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <Button Content="All" Style="{StaticResource OutlineButtonStyle}" Height="30" Margin="0,0,6,0" Click="FilterLogs_Click" Tag="all"/>
+                                        <Button Content="Apps" Style="{StaticResource OutlineButtonStyle}" Height="30" Margin="0,0,6,0" Click="FilterLogs_Click" Tag="app"/>
+                                        <Button Content="Websites" Style="{StaticResource OutlineButtonStyle}" Height="30" Margin="0,0,6,0" Click="FilterLogs_Click" Tag="website"/>
+                                        <Button Content="Security" Style="{StaticResource OutlineButtonStyle}" Height="30" Click="FilterLogs_Click" Tag="security"/>
+                                    </StackPanel>
+
+                                    <ListView x:Name="ListActivityLogs" Background="Transparent" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" Height="420" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                        <ListView.Resources>
+                                            <!-- Windows 11 Fluent Column Header Style -->
+                                            <Style TargetType="GridViewColumnHeader">
+                                                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}"/>
+                                                <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                                <Setter Property="Padding" Value="12,10"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                <Setter Property="FontSize" Value="12.5"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="GridViewColumnHeader">
+                                                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+
+                                            <!-- Windows 11 Fluent Row Item Style -->
+                                            <Style TargetType="ListViewItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <Setter Property="Height" Value="42"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListViewItem">
+                                                            <Border x:Name="itemBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                                                                <GridViewRowPresenter VerticalAlignment="Center" Columns="{TemplateBinding GridView.ColumnCollection}"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListView.Resources>
+
+                                        <ListView.View>
+                                            <GridView>
+                                                <!-- Timestamp Column -->
+                                                <GridViewColumn Header="Time" Width="140">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss dd-MMM}'}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12.5" VerticalAlignment="Center" Margin="6,0"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+
+                                                <!-- Type Badge Column -->
+                                                <GridViewColumn Header="Type" Width="100">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="typePill" CornerRadius="4" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Background="#268B5CF6">
+                                                                <TextBlock x:Name="typeTxt" Text="{Binding Type}" FontWeight="SemiBold" FontSize="11" Foreground="#C084FC" TextAlignment="Center"/>
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Type}" Value="security">
+                                                                    <Setter TargetName="typePill" Property="Background" Value="#2610B981"/>
+                                                                    <Setter TargetName="typeTxt" Property="Foreground" Value="#34D399"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Type}" Value="website">
+                                                                    <Setter TargetName="typePill" Property="Background" Value="#26F59E0B"/>
+                                                                    <Setter TargetName="typeTxt" Property="Foreground" Value="#FBBF24"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Type}" Value="app">
+                                                                    <Setter TargetName="typePill" Property="Background" Value="#26A855F7"/>
+                                                                    <Setter TargetName="typeTxt" Property="Foreground" Value="#C084FC"/>
+                                                                </DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+
+                                                <!-- Target Column -->
+                                                <GridViewColumn Header="Target" Width="190">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="{Binding Target}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Target}" Value="">
+                                                                                <Setter Property="Text" Value="(Prohibited Application)"/>
+                                                                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                                                                <Setter Property="FontStyle" Value="Italic"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+
+                                                <!-- Action Column -->
+                                                <GridViewColumn Header="Action" Width="110">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource AccentDanger}" FontSize="12" VerticalAlignment="Center" Margin="6,0">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="{Binding Action}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Action}" Value="">
+                                                                                <Setter Property="Text" Value="Blocked"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+
+                                                <!-- Details Column -->
+                                                <GridViewColumn Header="Details" Width="380">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="{Binding Details}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Details}" Value="">
+                                                                                <Setter Property="Text" Value="Attempt was intercepted and blocked by Parental Shield"/>
+                                                                                <Setter Property="FontStyle" Value="Italic"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- TAB 5: SECURITY & SETTINGS -->
+                        <StackPanel x:Name="PanelSettings" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- PASSCODE CARD -->
+                                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,10,0">
+                                    <StackPanel>
+                                        <TextBlock Text="PIN &amp; recovery" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                        <TextBlock Text="Keep your protection settings safe from unauthorized changes" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,16"/>
+
+                                        <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Your PIN" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="Change your master 4-digit PIN" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                                </StackPanel>
+                                                <Button Content="Change PIN" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Click="BtnChangePin_Click"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Security question" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock x:Name="TxtRecoveryQuestionStatus" Text="Configured" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                                </StackPanel>
+                                                <Button Content="Change question" Style="{StaticResource OutlineButtonStyle}" HorizontalAlignment="Right" Click="BtnChangeRecovery_Click"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <Grid>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="Lock after inactivity" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <TextBlock Text="Requires your PIN again if you step away" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="CmbAutoLockMinutes" HorizontalAlignment="Right" Width="140" Height="36" VerticalContentAlignment="Center" SelectionChanged="CmbAutoLockMinutes_SelectionChanged">
+                                                <ComboBoxItem Content="1 Minute"/>
+                                                <ComboBoxItem Content="3 Minutes" IsSelected="True"/>
+                                                <ComboBoxItem Content="5 Minutes"/>
+                                                <ComboBoxItem Content="10 Minutes"/>
+                                            </ComboBox>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- SYSTEM BEHAVIOR CARD -->
+                                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Margin="10,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Startup &amp; background" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                        <TextBlock Text="Choose how Parental Shield runs on this computer" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,16"/>
+
+                                        <!-- Minimize to tray -->
+                                        <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Keep running when closed" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="Closing the window keeps protection active in the tray" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                                </StackPanel>
+                                                <CheckBox x:Name="ToggleMinimizeToTray" HorizontalAlignment="Right" IsChecked="True" Click="ToggleMinimizeToTray_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Start with Windows (Autostart) -->
+                                        <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Start when PC turns on" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="Turns on protection automatically when Windows starts" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                                </StackPanel>
+                                                <CheckBox x:Name="ToggleStartWithWindows" HorizontalAlignment="Right" IsChecked="True" Click="ToggleStartWithWindows_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Updates -->
+                                        <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                            <Grid>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="Updates" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock x:Name="TxtUpdateStatus" Text="Check for the latest version" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                                </StackPanel>
+                                                <Button x:Name="BtnCheckUpdates" Content="Check for updates" Style="{StaticResource OutlineButtonStyle}" HorizontalAlignment="Right" Click="BtnCheckUpdates_Click"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Exit App -->
+                                        <Grid Margin="0,4,0,0">
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="Quit Parental Shield" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <TextBlock Text="Turns off protection until you reopen the app" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                            </StackPanel>
+                                            <Button Content="Turn off &amp; Quit" Style="{StaticResource DangerOutlineButtonStyle}" HorizontalAlignment="Right" Click="BtnExitApp_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- ==========================================================================
+             MODALS & OVERLAYS
+             ========================================================================== -->
+
+        <!-- PASSCODE UNLOCK / PIN PAD MODAL -->
+        <Grid x:Name="ModalPasscode" Visibility="Collapsed" Background="{DynamicResource ModalOverlayBrush}">
+            <Border Style="{StaticResource ElevatedCardBorderStyle}" Width="370" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel>
+                    <Border Width="52" Height="52" CornerRadius="26" Background="#260284C7" HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <TextBlock Text="🔒" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Enter your PIN" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Enter your PIN to change settings" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,18"/>
+
+                    <!-- PIN DOTS -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <Ellipse x:Name="PinDot0" Width="14" Height="14" Stroke="{DynamicResource CardStrokeColorDefaultBrush}" StrokeThickness="2" Margin="6,0"/>
+                        <Ellipse x:Name="PinDot1" Width="14" Height="14" Stroke="{DynamicResource CardStrokeColorDefaultBrush}" StrokeThickness="2" Margin="6,0"/>
+                        <Ellipse x:Name="PinDot2" Width="14" Height="14" Stroke="{DynamicResource CardStrokeColorDefaultBrush}" StrokeThickness="2" Margin="6,0"/>
+                        <Ellipse x:Name="PinDot3" Width="14" Height="14" Stroke="{DynamicResource CardStrokeColorDefaultBrush}" StrokeThickness="2" Margin="6,0"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="TxtPinError" Text="Incorrect PIN. Please try again." FontSize="12" Foreground="{DynamicResource AccentDanger}" HorizontalAlignment="Center" Visibility="Collapsed" Margin="0,0,0,12"/>
+
+                    <!-- KEYPAD 3x4 -->
+                    <UniformGrid Columns="3" Rows="4" Width="230" Height="220" Margin="0,0,0,18">
+                        <Button Content="1" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="1"/>
+                        <Button Content="2" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="2"/>
+                        <Button Content="3" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="3"/>
+                        <Button Content="4" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="4"/>
+                        <Button Content="5" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="5"/>
+                        <Button Content="6" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="6"/>
+                        <Button Content="7" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="7"/>
+                        <Button Content="8" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="8"/>
+                        <Button Content="9" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="9"/>
+                        <Button Content="C" Style="{StaticResource OutlineButtonStyle}" FontSize="16" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="4" Click="KeypadBtn_Click" Tag="clear"/>
+                        <Button Content="0" Style="{StaticResource OutlineButtonStyle}" FontSize="18" Margin="4" Click="KeypadBtn_Click" Tag="0"/>
+                        <Button Content="⌫" Style="{StaticResource OutlineButtonStyle}" FontSize="16" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="4" Click="KeypadBtn_Click" Tag="backspace"/>
+                    </UniformGrid>
+
+                    <Grid>
+                        <Button Content="Forgot PIN?" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" HorizontalAlignment="Left" Cursor="Hand" Click="BtnForgotPin_Click"/>
+                        <Button Content="Cancel" Style="{StaticResource OutlineButtonStyle}" Height="32" Padding="14,0" HorizontalAlignment="Right" Click="BtnCancelPin_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- SETUP / CHANGE PIN MODAL -->
+        <Grid x:Name="ModalSetupPin" Visibility="Collapsed" Background="{DynamicResource ModalOverlayBrush}">
+            <Border Style="{StaticResource ElevatedCardBorderStyle}" Width="430" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel>
+                    <TextBlock x:Name="TxtSetupTitle" Text="Set up a PIN" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock Text="Lock your blocking rules so kids can't turn them off" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,3,0,16"/>
+
+                    <TextBlock Text="New PIN (4 to 8 digits):" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <PasswordBox x:Name="PassSetupNew" Style="{StaticResource ModernPasswordBoxStyle}" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="Re-enter PIN:" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <PasswordBox x:Name="PassSetupConfirm" Style="{StaticResource ModernPasswordBoxStyle}" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="Secret question (in case you forget):" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <ComboBox x:Name="CmbSetupQuestion" Height="38" VerticalContentAlignment="Center" Margin="0,0,0,12">
+                        <ComboBoxItem Content="What was the name of your first pet?" IsSelected="True"/>
+                        <ComboBoxItem Content="What city were you born in?"/>
+                        <ComboBoxItem Content="What was your childhood nickname?"/>
+                        <ComboBoxItem Content="What is your mother's maiden name?"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Your answer:" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <TextBox x:Name="TxtSetupAnswer" Style="{StaticResource ModernTextBoxStyle}" Margin="0,0,0,16"/>
+
+                    <TextBlock x:Name="TxtSetupError" Text="" FontSize="12" Foreground="{DynamicResource AccentDanger}" Visibility="Collapsed" Margin="0,0,0,10"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="BtnCancelSetup" Content="Cancel" Style="{StaticResource OutlineButtonStyle}" Margin="0,0,10,0" Click="BtnCancelSetup_Click"/>
+                        <Button Content="Save PIN" Style="{StaticResource PrimaryButtonStyle}" Click="BtnSaveSetup_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- RECOVERY MODAL -->
+        <Grid x:Name="ModalRecovery" Visibility="Collapsed" Background="{DynamicResource ModalOverlayBrush}">
+            <Border Style="{StaticResource ElevatedCardBorderStyle}" Width="430" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Reset your PIN" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock Text="Answer your secret question to choose a new PIN" FontSize="12.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,3,0,16"/>
+
+                    <TextBlock Text="Secret question:" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="TxtRecoveryQuestionPrompt" Text="" FontSize="13.5" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="Your answer:" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <TextBox x:Name="TxtRecoveryAnswer" Style="{StaticResource ModernTextBoxStyle}" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="New PIN (4 to 8 digits):" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <PasswordBox x:Name="PassRecoveryNew" Style="{StaticResource ModernPasswordBoxStyle}" Margin="0,0,0,16"/>
+
+                    <TextBlock x:Name="TxtRecoveryError" Text="" FontSize="12" Foreground="{DynamicResource AccentDanger}" Visibility="Collapsed" Margin="0,0,0,10"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancel" Style="{StaticResource OutlineButtonStyle}" Margin="0,0,10,0" Click="BtnCancelRecovery_Click"/>
+                        <Button Content="Save new PIN" Style="{StaticResource PrimaryButtonStyle}" Click="BtnSubmitRecovery_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- RUNNING APPS SCANNER MODAL -->
+        <Grid x:Name="ModalRunningApps" Visibility="Collapsed" Background="{DynamicResource ModalOverlayBrush}">
+            <Border Style="{StaticResource ElevatedCardBorderStyle}" Width="580" MaxHeight="530" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,14">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Choose an open app to block" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="Pick an app running right now to add it to your blocked list" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        </StackPanel>
+                        <Button Content="✕" Width="30" Height="30" Style="{StaticResource OutlineButtonStyle}" HorizontalAlignment="Right" Click="BtnCloseRunningApps_Click"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtFilterRunningApps" Style="{StaticResource ModernTextBoxStyle}" Margin="0,0,10,0" TextChanged="TxtFilterRunningApps_TextChanged"/>
+                        <Button Content="🔄 Refresh" Style="{StaticResource OutlineButtonStyle}" Grid.Column="1" Click="BtnRefreshRunningApps_Click"/>
+                    </Grid>
+
+                    <ListBox x:Name="ListRunningAppsScanner" Grid.Row="2" Height="320" Background="Transparent" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- FLOATING TOAST NOTIFICATION -->
+        <Border x:Name="ToastNotification" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24" CornerRadius="10" Padding="16,12" Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" Visibility="Collapsed">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.35" Direction="270" Color="#000000"/>
+            </Border.Effect>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock x:Name="ToastIcon" Text="🛡️" FontSize="15" Margin="0,0,8,0"/>
+                <TextBlock x:Name="ToastText" Text="Notification message" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</ui:FluentWindow>
