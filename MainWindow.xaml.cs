@@ -97,6 +97,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             AutostartService.SetEnabled(true);
         }
 
+        OnLockStateChanged(_securityService.IsUnlocked);
         RefreshUI();
 
         if (App.IsStartupMinimized)
@@ -323,6 +324,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ModalPasscode.Visibility = Visibility.Collapsed;
         _currentPinInput = "";
         _pendingAction = null;
+        RefreshUI();
     }
 
     private void UpdatePinDots()
@@ -542,6 +544,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ToggleMinimizeToTray.IsChecked = config.MinimizeToTray;
         ToggleStartWithWindows.IsChecked = AutostartService.IsEnabled();
 
+        foreach (ComboBoxItem item in CmbAutoLockMinutes.Items)
+        {
+            if (item.Content is string s && s.StartsWith(config.AutoLockMinutes.ToString()))
+            {
+                CmbAutoLockMinutes.SelectedItem = item;
+                break;
+            }
+        }
+
         // Counts
         int webCount = _hostsService.GetActiveDomains().Count;
         int appCount = _watchdogService.GetActiveBlockedProcessMap().Count;
@@ -617,49 +628,83 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     // ==========================================================================
     // DASHBOARD & CATEGORY TOGGLES
     // ==========================================================================
-    private void ToggleMasterProtection_Click(object sender, RoutedEventArgs e)
+    private void ToggleMasterProtection_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
-        bool target = ToggleMasterProtection.IsChecked == true;
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
         RequireParentAuth(() =>
         {
-            _configService.Config.ProtectionActive = target;
-            _configService.SaveConfig();
-
-            if (target)
-            {
-                _hostsService.ApplyBlockRules();
-                _watchdogService.Start();
-            }
-            else
-            {
-                _hostsService.RestoreOriginal();
-                _watchdogService.Stop();
-            }
-
-            RefreshUI();
-            ShowToast(target ? "Parental Shield enabled." : "Parental Shield paused.", target ? "✅" : "⏸️");
+            ToggleMasterProtection.IsChecked = !ToggleMasterProtection.IsChecked;
+            ApplyMasterProtectionToggle(ToggleMasterProtection.IsChecked == true);
         });
+    }
 
-        // Revert UI if cancelled
-        if (!_securityService.IsUnlocked)
+    private void ToggleMasterProtection_Click(object sender, RoutedEventArgs e)
+    {
+        if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
         {
             ToggleMasterProtection.IsChecked = _configService.Config.ProtectionActive;
+            return;
+        }
+
+        ApplyMasterProtectionToggle(ToggleMasterProtection.IsChecked == true);
+    }
+
+    private void ApplyMasterProtectionToggle(bool target)
+    {
+        _configService.Config.ProtectionActive = target;
+        _configService.SaveConfig();
+
+        if (target)
+        {
+            _hostsService.ApplyBlockRules();
+            _watchdogService.Start();
+        }
+        else
+        {
+            _hostsService.RestoreOriginal();
+            _watchdogService.Stop();
+        }
+
+        RefreshUI();
+        ShowToast(target ? "Parental Shield enabled." : "Parental Shield paused.", target ? "✅" : "⏸️");
+    }
+
+    private void ToggleCategory_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
+        if (sender is CheckBox chk)
+        {
+            RequireParentAuth(() =>
+            {
+                chk.IsChecked = !chk.IsChecked;
+                ApplyCategoryToggles();
+            });
         }
     }
 
     private void ToggleCategory_Click(object sender, RoutedEventArgs e)
     {
-        RequireParentAuth(() =>
+        if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
         {
-            _configService.Config.BlockAdultContent = ToggleAdultWeb.IsChecked == true;
-            _configService.Config.BlockGambling = ToggleGambling.IsChecked == true;
-            _configService.Config.BlockMatureApps = ToggleMatureApps.IsChecked == true;
-            _configService.SaveConfig();
-
-            _hostsService.ApplyBlockRules();
             RefreshUI();
-            ShowToast("Category filters updated.", "✅");
-        });
+            return;
+        }
+
+        ApplyCategoryToggles();
+    }
+
+    private void ApplyCategoryToggles()
+    {
+        _configService.Config.BlockAdultContent = ToggleAdultWeb.IsChecked == true;
+        _configService.Config.BlockGambling = ToggleGambling.IsChecked == true;
+        _configService.Config.BlockMatureApps = ToggleMatureApps.IsChecked == true;
+        _configService.SaveConfig();
+
+        _hostsService.ApplyBlockRules();
+        RefreshUI();
+        ShowToast("Category filters updated.", "✅");
     }
 
     // ==========================================================================
@@ -717,15 +762,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var rightSp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var chk = new CheckBox { IsChecked = site.Enabled, Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center };
-        chk.Click += (s, e) =>
+        chk.PreviewMouseLeftButtonDown += (s, e) =>
         {
+            if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+            e.Handled = true;
             RequireParentAuth(() =>
             {
+                chk.IsChecked = !chk.IsChecked;
                 site.Enabled = chk.IsChecked == true;
                 _configService.SaveConfig();
                 _hostsService.ApplyBlockRules();
                 RefreshUI();
             });
+        };
+        chk.Click += (s, e) =>
+        {
+            if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
+            {
+                RefreshUI();
+                return;
+            }
+            site.Enabled = chk.IsChecked == true;
+            _configService.SaveConfig();
+            _hostsService.ApplyBlockRules();
+            RefreshUI();
         };
 
         var btnDel = new Button
@@ -949,15 +1009,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var rightSp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var chk = new CheckBox { IsChecked = app.Enabled, Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center };
-        chk.Click += (s, e) =>
+        chk.PreviewMouseLeftButtonDown += (s, e) =>
         {
+            if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+            e.Handled = true;
             RequireParentAuth(() =>
             {
+                chk.IsChecked = !chk.IsChecked;
                 app.Enabled = chk.IsChecked == true;
                 _configService.SaveConfig();
                 if (app.Enabled) _watchdogService.CheckAndTerminateBlockedProcesses();
                 RefreshUI();
             });
+        };
+        chk.Click += (s, e) =>
+        {
+            if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
+            {
+                RefreshUI();
+                return;
+            }
+            app.Enabled = chk.IsChecked == true;
+            _configService.SaveConfig();
+            if (app.Enabled) _watchdogService.CheckAndTerminateBlockedProcesses();
+            RefreshUI();
         };
 
         var btnDel = new Button
@@ -1250,6 +1325,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         RequireParentAuth(() => ShowSetupModal(isFirstRun: false));
     }
 
+    private void CmbAutoLockMinutes_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
+        RequireParentAuth(() =>
+        {
+            CmbAutoLockMinutes.IsDropDownOpen = true;
+        });
+    }
+
     private void CmbAutoLockMinutes_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (CmbAutoLockMinutes.SelectedItem is ComboBoxItem item && item.Content is string text)
@@ -1264,30 +1349,60 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
-    private void ToggleMinimizeToTray_Click(object sender, RoutedEventArgs e)
+    private void ToggleMinimizeToTray_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
         RequireParentAuth(() =>
         {
+            ToggleMinimizeToTray.IsChecked = !ToggleMinimizeToTray.IsChecked;
             _configService.Config.MinimizeToTray = ToggleMinimizeToTray.IsChecked == true;
             _configService.SaveConfig();
+            RefreshUI();
+        });
+    }
+
+    private void ToggleMinimizeToTray_Click(object sender, RoutedEventArgs e)
+    {
+        if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
+        {
+            RefreshUI();
+            return;
+        }
+
+        _configService.Config.MinimizeToTray = ToggleMinimizeToTray.IsChecked == true;
+        _configService.SaveConfig();
+    }
+
+    private void ToggleStartWithWindows_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
+        RequireParentAuth(() =>
+        {
+            ToggleStartWithWindows.IsChecked = !ToggleStartWithWindows.IsChecked;
+            bool enable = ToggleStartWithWindows.IsChecked == true;
+            AutostartService.SetEnabled(enable);
+            _configService.Config.StartWithWindows = enable;
+            _configService.SaveConfig();
+            RefreshUI();
+            ShowToast(enable ? "Parental Shield will start with Windows." : "Removed from Windows startup.", enable ? "🚀" : "ℹ️");
         });
     }
 
     private void ToggleStartWithWindows_Click(object sender, RoutedEventArgs e)
     {
-        RequireParentAuth(() =>
+        if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
         {
-            bool enable = ToggleStartWithWindows.IsChecked == true;
-            AutostartService.SetEnabled(enable);
-            _configService.Config.StartWithWindows = enable;
-            _configService.SaveConfig();
-            ShowToast(enable ? "Parental Shield will start with Windows." : "Removed from Windows startup.", enable ? "🚀" : "ℹ️");
-        });
-
-        if (!_securityService.IsUnlocked)
-        {
-            ToggleStartWithWindows.IsChecked = AutostartService.IsEnabled();
+            RefreshUI();
+            return;
         }
+
+        bool enable = ToggleStartWithWindows.IsChecked == true;
+        AutostartService.SetEnabled(enable);
+        _configService.Config.StartWithWindows = enable;
+        _configService.SaveConfig();
+        ShowToast(enable ? "Parental Shield will start with Windows." : "Removed from Windows startup.", enable ? "🚀" : "ℹ️");
     }
 
     private async void BtnCheckUpdates_Click(object sender, RoutedEventArgs e)

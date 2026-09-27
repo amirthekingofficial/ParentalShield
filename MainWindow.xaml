@@ -228,7 +228,7 @@
                                     <!-- MASTER PROTECTION TOGGLE -->
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="Main switch" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                                        <CheckBox x:Name="ToggleMasterProtection" IsChecked="True" Click="ToggleMasterProtection_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                        <CheckBox x:Name="ToggleMasterProtection" IsChecked="True" Click="ToggleMasterProtection_Click" PreviewMouseLeftButtonDown="ToggleMasterProtection_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -298,7 +298,7 @@
                                                     <TextBlock Text="Adult content &amp; websites" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                                     <TextBlock Text="Blocks over 85 common adult websites" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                                 </StackPanel>
-                                                <CheckBox x:Name="ToggleAdultWeb" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                                <CheckBox x:Name="ToggleAdultWeb" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" PreviewMouseLeftButtonDown="ToggleCategory_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
 
@@ -309,7 +309,7 @@
                                                     <TextBlock Text="Gambling &amp; betting" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                                     <TextBlock Text="Blocks online casinos and sports betting" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                                 </StackPanel>
-                                                <CheckBox x:Name="ToggleGambling" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                                <CheckBox x:Name="ToggleGambling" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" PreviewMouseLeftButtonDown="ToggleCategory_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
 
@@ -320,7 +320,7 @@
                                                     <TextBlock Text="Mature applications" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                                     <TextBlock Text="Closes torrent programs and random video chats" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                                 </StackPanel>
-                                                <CheckBox x:Name="ToggleMatureApps" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                                <CheckBox x:Name="ToggleMatureApps" HorizontalAlignment="Right" IsChecked="True" Click="ToggleCategory_Click" PreviewMouseLeftButtonDown="ToggleCategory_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
                                     </StackPanel>
@@ -682,7 +682,7 @@
                                                 <TextBlock Text="Lock after inactivity" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                                 <TextBlock Text="Requires your PIN again if you step away" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                                             </StackPanel>
-                                            <ComboBox x:Name="CmbAutoLockMinutes" HorizontalAlignment="Right" Width="140" Height="36" VerticalContentAlignment="Center" SelectionChanged="CmbAutoLockMinutes_SelectionChanged">
+                                            <ComboBox x:Name="CmbAutoLockMinutes" HorizontalAlignment="Right" Width="140" Height="36" VerticalContentAlignment="Center" SelectionChanged="CmbAutoLockMinutes_SelectionChanged" PreviewMouseLeftButtonDown="CmbAutoLockMinutes_PreviewMouseDown">
                                                 <ComboBoxItem Content="1 Minute"/>
                                                 <ComboBoxItem Content="3 Minutes" IsSelected="True"/>
                                                 <ComboBoxItem Content="5 Minutes"/>
@@ -705,7 +705,7 @@
                                                     <TextBlock Text="Keep running when closed" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                                     <TextBlock Text="Closing the window keeps protection active in the tray" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                                                 </StackPanel>
-                                                <CheckBox x:Name="ToggleMinimizeToTray" HorizontalAlignment="Right" IsChecked="True" Click="ToggleMinimizeToTray_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                                <CheckBox x:Name="ToggleMinimizeToTray" HorizontalAlignment="Right" IsChecked="True" Click="ToggleMinimizeToTray_Click" PreviewMouseLeftButtonDown="ToggleMinimizeToTray_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
 
@@ -716,7 +716,7 @@
                                                     <TextBlock Text="Start when PC turns on" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                                     <TextBlock Text="Turns on protection automatically when Windows starts" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                                                 </StackPanel>
-                                                <CheckBox x:Name="ToggleStartWithWindows" HorizontalAlignment="Right" IsChecked="True" Click="ToggleStartWithWindows_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                                                <CheckBox x:Name="ToggleStartWithWindows" HorizontalAlignment="Right" IsChecked="True" Click="ToggleStartWithWindows_Click" PreviewMouseLeftButtonDown="ToggleStartWithWindows_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
 
