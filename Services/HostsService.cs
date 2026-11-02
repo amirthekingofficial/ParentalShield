@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using Microsoft.Win32;
+using ParentalShield.Models;
 
 namespace ParentalShield.Services;
 
@@ -15,14 +15,17 @@ public class HostsService
     private readonly string _hostsPath;
     private readonly string _backupPath;
     private readonly ConfigService _configService;
+    private readonly AccountScopeService _accountScope;
+    private bool? _lastAppliedState;
 
     // Win32 API for instantaneous DNS resolver cache flush
     [DllImport("dnsapi.dll", EntryPoint = "DnsFlushResolverCache", SetLastError = true)]
     private static extern int DnsFlushResolverCache();
 
-    public HostsService(ConfigService configService)
+    public HostsService(ConfigService configService, AccountScopeService accountScope)
     {
         _configService = configService;
+        _accountScope = accountScope;
         string sysRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         _hostsPath = Path.Combine(sysRoot, "System32", "drivers", "etc", "hosts");
         _backupPath = Path.Combine(configService.ConfigDir, "hosts.original.bak");
@@ -40,14 +43,19 @@ public class HostsService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Backup error: {ex.Message}");
+            App.LogDebug($"Backup error: {ex.Message}");
         }
     }
 
     public List<string> GetActiveDomains()
     {
         var config = _configService.Config;
-        if (!config.ProtectionActive) return [];
+        if (!config.ProtectionActive || config.IsTemporarilyPaused()) return [];
+
+        // When scoped to protected accounts and none are online, report 0 active domains
+        // (machine hosts file should also be clean — see SyncEnforcement).
+        if (config.ScopeToProtectedAccounts && !_accountScope.ShouldEnforceNetworkBlocks())
+            return [];
 
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -63,9 +71,24 @@ public class HostsService
                 set.Add(d.Trim());
         }
 
-        foreach (var doh in DefaultBlocklists.DoHProviders)
+        if (config.BlockSocialMedia)
         {
-            set.Add(doh.Trim());
+            foreach (var d in DefaultBlocklists.SocialMediaDomains)
+                set.Add(d.Trim());
+        }
+
+        if (config.BlockVpnAndProxies)
+        {
+            foreach (var d in DefaultBlocklists.VpnProxyDomains)
+                set.Add(d.Trim());
+        }
+
+        // DoH provider hosts blocks are a last-resort anti-bypass for child sessions only.
+        // They are never left in place when parent accounts are the only ones logged on.
+        if (_accountScope.ShouldEnforceNetworkBlocks() && config.BlockDnsTampering)
+        {
+            foreach (var doh in DefaultBlocklists.DoHProviders)
+                set.Add(doh.Trim());
         }
 
         foreach (var custom in config.CustomWebsites)
@@ -83,7 +106,6 @@ public class HostsService
     {
         try
         {
-            // 1. Instant Win32 API flush
             DnsFlushResolverCache();
         }
         catch
@@ -92,7 +114,6 @@ public class HostsService
 
         try
         {
-            // 2. Supplemental ipconfig flush with hidden process
             var psi = new ProcessStartInfo("ipconfig", "/flushdns")
             {
                 CreateNoWindow = true,
@@ -104,20 +125,6 @@ public class HostsService
         }
         catch
         {
-        }
-    }
-
-    public void DisableBrowserDoH()
-    {
-        try
-        {
-            Registry.SetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome", "DnsOverHttpsMode", "off");
-            Registry.SetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge", "DnsOverHttpsMode", "off");
-            Registry.SetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave", "DnsOverHttpsMode", "off");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Registry DoH policy notice: {ex.Message}");
         }
     }
 
@@ -135,13 +142,43 @@ public class HostsService
         return content.TrimEnd() + "\r\n";
     }
 
+    /// <summary>
+    /// Applies or clears hosts rules based on whether a protected child session is active.
+    /// Parent-only sessions get a clean hosts file so their DNS is not ruined.
+    /// </summary>
+    public bool SyncEnforcement(bool force = false)
+    {
+        bool shouldApply = _accountScope.ShouldEnforceNetworkBlocks();
+        if (!force && _lastAppliedState == shouldApply)
+            return true;
+
+        bool ok = shouldApply ? ApplyBlockRulesInternal() : RestoreOriginalInternal();
+        if (ok) _lastAppliedState = shouldApply;
+        return ok;
+    }
+
     public bool ApplyBlockRules()
+    {
+        // Public entry used by UI — always re-evaluate account scope
+        _lastAppliedState = null;
+        return SyncEnforcement(force: true);
+    }
+
+    public bool RestoreOriginal()
+    {
+        _lastAppliedState = null;
+        bool ok = RestoreOriginalInternal();
+        if (ok) _lastAppliedState = false;
+        return ok;
+    }
+
+    private bool ApplyBlockRulesInternal()
     {
         try
         {
             string currentContent = File.Exists(_hostsPath) ? File.ReadAllText(_hostsPath) : "";
             string cleanContent = CleanHostsText(currentContent);
-            var domains = GetActiveDomains();
+            var domains = BuildDomainListForHosts();
 
             var sb = new StringBuilder();
             if (domains.Count > 0)
@@ -149,6 +186,7 @@ public class HostsService
                 sb.AppendLine(BlockHeader);
                 sb.AppendLine($"# Total active blocked domains: {domains.Count}");
                 sb.AppendLine($"# Last updated: {DateTime.Now}");
+                sb.AppendLine("# Scoped: only while a protected child Windows account is signed in.");
 
                 foreach (var raw in domains)
                 {
@@ -172,17 +210,61 @@ public class HostsService
             File.WriteAllText(_hostsPath, finalContent, Encoding.UTF8);
 
             FlushDns();
-            DisableBrowserDoH();
+            App.LogDebug($"Hosts block rules applied ({domains.Count} domains) for protected sessions");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error applying block rules to hosts: {ex.Message}");
+            App.LogDebug($"Error applying block rules to hosts: {ex.Message}");
             return false;
         }
     }
 
-    public bool RestoreOriginal()
+    private List<string> BuildDomainListForHosts()
+    {
+        var config = _configService.Config;
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (config.BlockAdultContent)
+        {
+            foreach (var d in DefaultBlocklists.AdultDomains)
+                set.Add(d.Trim());
+        }
+
+        if (config.BlockGambling)
+        {
+            foreach (var d in DefaultBlocklists.GamblingDomains)
+                set.Add(d.Trim());
+        }
+
+        if (config.BlockSocialMedia)
+        {
+            foreach (var d in DefaultBlocklists.SocialMediaDomains)
+                set.Add(d.Trim());
+        }
+
+        if (config.BlockVpnAndProxies)
+        {
+            foreach (var d in DefaultBlocklists.VpnProxyDomains)
+                set.Add(d.Trim());
+        }
+
+        if (config.BlockDnsTampering)
+        {
+            foreach (var doh in DefaultBlocklists.DoHProviders)
+                set.Add(doh.Trim());
+        }
+
+        foreach (var custom in config.CustomWebsites)
+        {
+            if (custom.Enabled && !string.IsNullOrWhiteSpace(custom.Domain))
+                set.Add(custom.Domain.Trim());
+        }
+
+        return [.. set];
+    }
+
+    private bool RestoreOriginalInternal()
     {
         try
         {
@@ -192,11 +274,13 @@ public class HostsService
                 string cleanContent = CleanHostsText(currentContent);
                 File.WriteAllText(_hostsPath, cleanContent, Encoding.UTF8);
                 FlushDns();
+                App.LogDebug("Hosts Parental Shield block section removed — DNS restored for other accounts");
             }
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            App.LogDebug("RestoreOriginal hosts error: " + ex.Message);
             return false;
         }
     }

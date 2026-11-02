@@ -46,6 +46,21 @@ public class ActivityLogEntry
     public string Details { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Bedtime window. When enabled and a protected account is active during the window,
+/// browsers and blocked categories are enforced more strictly.
+/// </summary>
+public class BedtimeSchedule
+{
+    public bool Enabled { get; set; } = false;
+    /// <summary>Local time of day when bedtime starts (e.g. 21:00).</summary>
+    public string StartTime { get; set; } = "21:00";
+    /// <summary>Local time of day when bedtime ends (e.g. 07:00).</summary>
+    public string EndTime { get; set; } = "07:00";
+    /// <summary>When true, closes common browsers for protected accounts during bedtime.</summary>
+    public bool CloseBrowsersDuringBedtime { get; set; } = true;
+}
+
 public class AppConfig
 {
     public string Theme { get; set; } = "Dark"; // "Dark" or "Light"
@@ -56,6 +71,30 @@ public class AppConfig
     public bool MinimizeToTray { get; set; } = true;
     public bool StartWithWindows { get; set; } = true;
     public int AutoLockMinutes { get; set; } = 3;
+
+    /// <summary>
+    /// When true (default), hosts / DNS / DoH changes and process kills only apply
+    /// while a selected protected Windows account has an active session.
+    /// Parent and other accounts keep normal DNS.
+    /// </summary>
+    public bool ScopeToProtectedAccounts { get; set; } = true;
+
+    /// <summary>
+    /// Windows account usernames (SAM account names) that parental controls apply to.
+    /// Empty + ScopeToProtectedAccounts = protection armed but idle until accounts are chosen.
+    /// </summary>
+    public List<string> ProtectedWindowsAccounts { get; set; } = new();
+
+    public bool BlockSocialMedia { get; set; } = false;
+    public bool BlockVpnAndProxies { get; set; } = true;
+    public bool ForceSafeSearch { get; set; } = true;
+    public bool BlockPrivateBrowsing { get; set; } = true;
+    public bool BlockDnsTampering { get; set; } = true;
+
+    public BedtimeSchedule Bedtime { get; set; } = new();
+
+    /// <summary>Optional temporary pause end time (UTC ticks). Null when not paused.</summary>
+    public long? TemporaryPauseUntilUtcTicks { get; set; }
 
     public SecurityConfig Security { get; set; } = new();
     public AppStats Stats { get; set; } = new();
@@ -70,4 +109,15 @@ public class AppConfig
     {
         new BlockedApp { Name = "Discord", ProcessName = "Discord.exe", Category = "Social / Chat", Enabled = false }
     };
+
+    public bool IsTemporarilyPaused()
+    {
+        if (TemporaryPauseUntilUtcTicks == null) return false;
+        if (DateTime.UtcNow.Ticks >= TemporaryPauseUntilUtcTicks.Value)
+        {
+            TemporaryPauseUntilUtcTicks = null;
+            return false;
+        }
+        return true;
+    }
 }
