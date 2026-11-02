@@ -1,0 +1,109 @@
+name: Release
+
+# Easy updates for installed apps:
+# 1) GitHub → Actions → Release → Run workflow (enter version, e.g. 1.1.1)
+# 2) Or: git tag v1.1.1 && git push origin v1.1.1
+#
+# That publishes Velopack packages to GitHub Releases. Installed copies then
+# pick them up via Settings → Check for updates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (semver, no leading v). Leave blank to use ParentalShield.csproj <Version>."
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="$(grep -oP '(?<=<Version>)[^<]+' ParentalShield.csproj | head -1)"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$ ]]; then
+            echo "Invalid version: $VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing Parental Shield $VERSION"
+
+      - name: Sync csproj version
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          (Get-Content ParentalShield.csproj) `
+            -replace '<Version>.*</Version>', "<Version>$v</Version>" `
+            -replace '<AssemblyVersion>.*</AssemblyVersion>', "<AssemblyVersion>$v.0</AssemblyVersion>" `
+            -replace '<FileVersion>.*</FileVersion>', "<FileVersion>$v.0</FileVersion>" |
+            Set-Content ParentalShield.csproj
+
+      - name: Publish app
+        run: >
+          dotnet publish ParentalShield.csproj
+          -c Release
+          -r win-x64
+          -o publish
+          --self-contained false
+          -p:DebugType=None
+          -p:DebugSymbols=false
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk --version 1.2.158
+
+      - name: Download previous release (for deltas)
+        continue-on-error: true
+        run: >
+          vpk download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+          -o Releases
+
+      - name: Pack with Velopack
+        run: >
+          vpk pack
+          --packId ParentalShield
+          --packVersion ${{ steps.ver.outputs.version }}
+          --packDir publish
+          --mainExe ParentalShield.exe
+          --packTitle "Parental Shield"
+          --packAuthors "Parental Shield"
+          --icon Assets/icon.ico
+          -o Releases
+
+      - name: Upload to GitHub Releases
+        run: >
+          vpk upload github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+          --publish
+          --releaseName "Parental Shield v${{ steps.ver.outputs.version }}"
+          --tag ${{ steps.ver.outputs.tag }}
+          -o Releases

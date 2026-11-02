@@ -64,6 +64,29 @@ Download the latest installer or portable executable from the [GitHub Releases](
 - **`ParentalShield-win-Setup.exe`**: Automatic installer with desktop shortcut and background auto-update support.
 - **`ParentalShield-win-Portable.zip`**: Zero-install standalone portable edition.
 
+### Getting updates (installed app)
+**Check for updates only finds versions that are published on GitHub Releases.** Merging code to `main` is not enough by itself.
+
+1. Publish a new release (see below) — e.g. `v1.1.1`
+2. In the app: **Settings → Check for updates** → download & restart  
+   Or reinstall with the new `ParentalShield-win-Setup.exe` from Releases
+
+If Check for updates says you’re current, there is no newer Velopack release uploaded yet (right now the store still only has `v1.0.1` until you publish `1.1.1`).
+
+### Publishing a release (easy)
+Use the **Release** GitHub Action — it builds Windows packages with Velopack and uploads them so installed apps can update:
+
+1. Open [Actions → Release](https://github.com/amirthekingofficial/ParentalShield/actions/workflows/release.yml)
+2. Click **Run workflow**
+3. Version: `1.1.1` (or leave blank to use the `<Version>` in `ParentalShield.csproj`)
+4. Wait for the job to finish, then confirm the new release appears under [Releases](https://github.com/amirthekingofficial/ParentalShield/releases)
+
+Or from git:
+```bash
+git tag v1.1.1
+git push origin v1.1.1
+```
+
 ### Running the App
 1. Launch **`ParentalShield.exe`** (or the Desktop shortcut created by Setup).
 2. Click **"Yes"** on the Windows UAC elevation prompt (required to manage hosts blocking and system watchdog).

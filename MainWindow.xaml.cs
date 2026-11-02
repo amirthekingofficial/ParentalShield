@@ -1746,15 +1746,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
             else
             {
-                TxtUpdateStatus.Text = "You have the latest version.";
-                ShowToast("Parental Shield is up to date.", "✅");
+                TxtUpdateStatus.Text = "No newer GitHub release found.";
+                ShowToast("No update on GitHub Releases yet. Publish a release to push one.", "ℹ️");
             }
         }
         catch (Exception ex)
         {
-            TxtUpdateStatus.Text = "Check completed";
+            TxtUpdateStatus.Text = "Update check failed — see debug.log";
             App.LogDebug("Update check exception: " + ex.Message);
-            ShowToast("You're on the latest installed version.", "✅");
+            ShowToast("Could not reach GitHub Releases for updates.", "⚠️");
         }
         finally
         {
