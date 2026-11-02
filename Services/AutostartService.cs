@@ -106,10 +106,15 @@ public static class AutostartService
     {
         try
         {
-            // /sc onlogon: run at user logon
-            // /rl highest: run with Administrator privileges without triggering a UAC prompt
+            // /sc onstart: one machine-level start at boot (not every account logon).
+            // That keeps a single elevated monitor running so child-session DNS can be
+            // applied/cleared without launching a copy inside every Windows account.
+            // /rl highest: Administrator privileges without a UAC prompt after setup.
+            // /ru SYSTEM: runs regardless of who signs in first.
             // /f: force create/overwrite
-            string args = $"/create /tn \"{TaskName}\" /tr \"\\\"{exePath}\\\" --minimized\" /sc onlogon /rl highest /f";
+            string args =
+                $"/create /tn \"{TaskName}\" /tr \"\\\"{exePath}\\\" --minimized\" " +
+                "/sc onstart /ru SYSTEM /rl highest /f";
             using var proc = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -123,8 +128,31 @@ public static class AutostartService
                 }
             };
             proc.Start();
-            proc.WaitForExit(3000);
-            return proc.ExitCode == 0;
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(4000);
+            if (proc.ExitCode == 0) return true;
+
+            App.LogDebug("SYSTEM onstart task failed, falling back to onlogon: " + stderr);
+
+            // Fallback: elevated onlogon for the configuring admin (still better than per-user Run key)
+            string fallback =
+                $"/create /tn \"{TaskName}\" /tr \"\\\"{exePath}\\\" --minimized\" " +
+                "/sc onlogon /rl highest /f";
+            using var proc2 = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "schtasks.exe",
+                    Arguments = fallback,
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            proc2.Start();
+            proc2.WaitForExit(3000);
+            return proc2.ExitCode == 0;
         }
         catch (Exception ex)
         {

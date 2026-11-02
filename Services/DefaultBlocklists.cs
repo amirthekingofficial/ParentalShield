@@ -146,6 +146,49 @@ public static class DefaultBlocklists
         "doh.cleanbrowsing.org"
     ];
 
+    public static readonly string[] SocialMediaDomains =
+    [
+        "tiktok.com",
+        "instagram.com",
+        "facebook.com",
+        "fb.com",
+        "messenger.com",
+        "snapchat.com",
+        "x.com",
+        "twitter.com",
+        "reddit.com",
+        "discord.com",
+        "discord.gg",
+        "tumblr.com",
+        "pinterest.com",
+        "threads.net",
+        "bereal.com"
+    ];
+
+    public static readonly string[] VpnProxyDomains =
+    [
+        "nordvpn.com",
+        "expressvpn.com",
+        "surfshark.com",
+        "protonvpn.com",
+        "proton.me",
+        "cyberghostvpn.com",
+        "privateinternetaccess.com",
+        "pia.com",
+        "mullvad.net",
+        "hotspotshield.com",
+        "tunnelbear.com",
+        "windscribe.com",
+        "ipvanish.com",
+        "vyprvpn.com",
+        "hidester.com",
+        "kproxy.com",
+        "proxysite.com",
+        "croxyproxy.com",
+        "filterbypass.me",
+        "hidemyass.com"
+    ];
+
     public static readonly BlockedApp[] DefaultMatureApps =
     [
         new BlockedApp { Name = "uTorrent", ProcessName = "uTorrent.exe", Category = "18+ / Unmoderated Downloads" },
@@ -155,5 +198,19 @@ public static class DefaultBlocklists
         new BlockedApp { Name = "Tinder Desktop", ProcessName = "Tinder.exe", Category = "18+ Dating" },
         new BlockedApp { Name = "Grindr", ProcessName = "Grindr.exe", Category = "18+ Dating" },
         new BlockedApp { Name = "Cheat Engine", ProcessName = "cheatengine-x86_64.exe", Category = "Exploits & Tampering" }
+    ];
+
+    public static readonly BlockedApp[] DefaultVpnApps =
+    [
+        new BlockedApp { Name = "NordVPN", ProcessName = "NordVPN.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "ExpressVPN", ProcessName = "ExpressVPN.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "Surfshark", ProcessName = "Surfshark.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "ProtonVPN", ProcessName = "ProtonVPN.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "Mullvad", ProcessName = "MullvadVPN.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "OpenVPN", ProcessName = "openvpn.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "WireGuard", ProcessName = "wireguard.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "PIA", ProcessName = "pia-client.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "Hotspot Shield", ProcessName = "hsscp.exe", Category = "VPN / Proxy Bypass" },
+        new BlockedApp { Name = "TunnelBear", ProcessName = "TunnelBear.exe", Category = "VPN / Proxy Bypass" }
     ];
 }

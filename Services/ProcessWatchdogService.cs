@@ -21,15 +21,17 @@ public class RunningAppInfo
 public class ProcessWatchdogService : IDisposable
 {
     private readonly ConfigService _configService;
+    private readonly AccountScopeService _accountScope;
     private CancellationTokenSource? _cts;
     private Task? _watchdogTask;
     private readonly Dictionary<string, DateTime> _recentlyKilled = new(StringComparer.OrdinalIgnoreCase);
 
     public event Action<ActivityLogEntry, BlockedApp>? ProcessBlocked;
 
-    public ProcessWatchdogService(ConfigService configService)
+    public ProcessWatchdogService(ConfigService configService, AccountScopeService accountScope)
     {
         _configService = configService;
+        _accountScope = accountScope;
     }
 
     public void Start()
@@ -55,7 +57,7 @@ public class ProcessWatchdogService : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Watchdog error: {ex.Message}");
+                App.LogDebug($"Watchdog error: {ex.Message}");
             }
 
             try
@@ -73,22 +75,28 @@ public class ProcessWatchdogService : IDisposable
     {
         var map = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
         var config = _configService.Config;
-        if (!config.ProtectionActive) return map;
+        if (!config.ProtectionActive || config.IsTemporarilyPaused()) return map;
 
-        // 1. Default 18+ / mature apps
         if (config.BlockMatureApps)
         {
             foreach (var app in DefaultBlocklists.DefaultMatureApps)
             {
                 string key = NormalizeProcessName(app.ProcessName);
                 if (!map.ContainsKey(key))
-                {
                     map[key] = app;
-                }
             }
         }
 
-        // 2. Custom enabled apps
+        if (config.BlockVpnAndProxies)
+        {
+            foreach (var app in DefaultBlocklists.DefaultVpnApps)
+            {
+                string key = NormalizeProcessName(app.ProcessName);
+                if (!map.ContainsKey(key))
+                    map[key] = app;
+            }
+        }
+
         foreach (var app in config.CustomApps)
         {
             if (app.Enabled && !string.IsNullOrWhiteSpace(app.ProcessName))
@@ -120,25 +128,29 @@ public class ProcessWatchdogService : IDisposable
             try
             {
                 string name = proc.ProcessName.ToLowerInvariant();
-                if (blockedMap.TryGetValue(name, out var meta))
+                if (!blockedMap.TryGetValue(name, out var meta))
+                    continue;
+
+                // Only terminate processes owned by protected child accounts
+                string? owner = AccountScopeService.TryGetProcessOwner(proc);
+                if (!_accountScope.ShouldEnforceAgainstUser(owner))
+                    continue;
+
+                proc.Kill(entireProcessTree: true);
+
+                string debounceKey = $"{owner}:{name}";
+                if (!_recentlyKilled.TryGetValue(debounceKey, out var lastTime) || (now - lastTime).TotalSeconds > 5)
                 {
-                    // Kill immediately
-                    proc.Kill(entireProcessTree: true);
+                    _recentlyKilled[debounceKey] = now;
 
-                    // Debounce logs & alert to once every 5 seconds per process
-                    if (!_recentlyKilled.TryGetValue(name, out var lastTime) || (now - lastTime).TotalSeconds > 5)
-                    {
-                        _recentlyKilled[name] = now;
+                    var log = _configService.AddLog(
+                        "app",
+                        meta.Name,
+                        "Terminated",
+                        $"Blocked attempt by account '{owner}' to launch prohibited app: {meta.Name} ({meta.ProcessName})"
+                    );
 
-                        var log = _configService.AddLog(
-                            "app",
-                            meta.Name,
-                            "Terminated",
-                            $"Blocked attempt to launch prohibited app: {meta.Name} ({meta.ProcessName})"
-                        );
-
-                        ProcessBlocked?.Invoke(log, meta);
-                    }
+                    ProcessBlocked?.Invoke(log, meta);
                 }
             }
             catch

@@ -20,8 +20,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly ConfigService _configService;
     private readonly SecurityService _securityService;
+    private readonly AccountScopeService _accountScope;
     private readonly HostsService _hostsService;
+    private readonly BrowserPolicyService _browserPolicies;
     private readonly ProcessWatchdogService _watchdogService;
+    private readonly EnforcementService _enforcement;
     private readonly UpdateService _updateService;
     private System.Windows.Forms.NotifyIcon? _notifyIcon;
 
@@ -51,8 +54,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         _configService = new ConfigService();
         _securityService = new SecurityService(_configService);
-        _hostsService = new HostsService(_configService);
-        _watchdogService = new ProcessWatchdogService(_configService);
+        _accountScope = new AccountScopeService(_configService);
+        _hostsService = new HostsService(_configService, _accountScope);
+        _browserPolicies = new BrowserPolicyService(_configService, _accountScope);
+        _watchdogService = new ProcessWatchdogService(_configService, _accountScope);
+        _enforcement = new EnforcementService(_configService, _accountScope, _hostsService, _browserPolicies, _watchdogService);
         _updateService = new UpdateService();
 
         // Subscribe to security lock state changes
@@ -60,6 +66,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         // Subscribe to process watchdog events
         _watchdogService.ProcessBlocked += OnProcessBlocked;
+        _enforcement.StateChanged += () => Dispatcher.Invoke(RefreshUI);
 
         // Apply the native Windows 11 Mica backdrop & theme sync
         WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.Mica;
@@ -70,13 +77,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         SetupSystemTray();
         App.LogDebug("SetupSystemTray completed");
 
-        // Apply network hosts rules and start process monitoring
-        if (_configService.Config.ProtectionActive)
-        {
-            _hostsService.ApplyBlockRules();
-            _watchdogService.Start();
-            App.LogDebug("Protection rules applied and watchdog started");
-        }
+        // Starts with an immediate hosts/DNS repair, then account-scoped enforcement
+        _enforcement.Start();
+        App.LogDebug("Enforcement service started (DNS-safe, account-scoped)");
 
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
@@ -118,6 +121,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ShowSetupModal(isFirstRun: true);
             App.LogDebug("First run setup modal displayed");
+        }
+        else if (_configService.Config.ScopeToProtectedAccounts &&
+                 _configService.Config.ProtectedWindowsAccounts.Count == 0)
+        {
+            ShowToast("Choose protected child accounts in Settings so filtering doesn't affect other users' DNS.", "ℹ️");
         }
         App.LogDebug("MainWindow_Loaded completed");
     }
@@ -236,6 +244,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (_isExplicitExit)
         {
+            // Leaving the machine: clear hosts so other accounts are not stuck with child DNS blocks
+            try { _hostsService.RestoreOriginal(); } catch { }
+            try { _browserPolicies.ClearMachineWideDoHPolicies(); } catch { }
+            _enforcement.Dispose();
             _watchdogService.Dispose();
             _notifyIcon?.Dispose();
             return;
@@ -544,6 +556,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ToggleMinimizeToTray.IsChecked = config.MinimizeToTray;
         ToggleStartWithWindows.IsChecked = AutostartService.IsEnabled();
 
+        if (ToggleSocialMedia != null) ToggleSocialMedia.IsChecked = config.BlockSocialMedia;
+        if (ToggleVpnProxy != null) ToggleVpnProxy.IsChecked = config.BlockVpnAndProxies;
+        if (ToggleSafeSearch != null) ToggleSafeSearch.IsChecked = config.ForceSafeSearch;
+        if (TogglePrivateBrowsing != null) TogglePrivateBrowsing.IsChecked = config.BlockPrivateBrowsing;
+        if (ToggleDnsTampering != null) ToggleDnsTampering.IsChecked = config.BlockDnsTampering;
+        if (ToggleScopeAccounts != null) ToggleScopeAccounts.IsChecked = config.ScopeToProtectedAccounts;
+        if (ToggleBedtime != null) ToggleBedtime.IsChecked = config.Bedtime.Enabled;
+        if (ToggleBedtimeBrowsers != null) ToggleBedtimeBrowsers.IsChecked = config.Bedtime.CloseBrowsersDuringBedtime;
+
+        if (TxtBedtimeStart != null) TxtBedtimeStart.Text = config.Bedtime.StartTime;
+        if (TxtBedtimeEnd != null) TxtBedtimeEnd.Text = config.Bedtime.EndTime;
+
+        if (TxtAccountScopeStatus != null)
+            TxtAccountScopeStatus.Text = _accountScope.DescribeScopeStatus();
+
+        RenderProtectedAccountsList();
+
         foreach (ComboBoxItem item in CmbAutoLockMinutes.Items)
         {
             if (item.Content is string s && s.StartsWith(config.AutoLockMinutes.ToString()))
@@ -561,6 +590,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         MetricAppsCount.Text = appCount.ToString();
         MetricInterceptsCount.Text = config.Stats.TotalBlocksIntercepted.ToString();
 
+        if (BadgeWebsitesCount != null) BadgeWebsitesCount.Text = config.CustomWebsites.Count.ToString();
+        if (BadgeAppsCount != null) BadgeAppsCount.Text = config.CustomApps.Count.ToString();
+        if (BadgeLogsCount != null) BadgeLogsCount.Text = _configService.Logs.Count.ToString();
+
         // Lists
         RenderWebsitesList(TxtSearchWebsites.Text);
         RenderAppsList(TxtSearchApps.Text);
@@ -570,11 +603,27 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         TxtRecoveryQuestionStatus.Text = !string.IsNullOrEmpty(config.Security.Question)
             ? "Configured (Protected)"
             : "Not configured yet";
+
+        if (TxtPauseStatus != null)
+        {
+            if (config.IsTemporarilyPaused() && config.TemporaryPauseUntilUtcTicks is long ticks)
+            {
+                var until = new DateTime(ticks, DateTimeKind.Utc).ToLocalTime();
+                TxtPauseStatus.Text = $"Paused until {until:t}";
+            }
+            else
+            {
+                TxtPauseStatus.Text = "Not paused";
+            }
+        }
     }
 
     private void UpdateHeroStatus(bool active)
     {
-        if (active)
+        bool enforcing = active && _accountScope.ShouldEnforceNetworkBlocks();
+        bool pausedTemp = active && _configService.Config.IsTemporarilyPaused();
+
+        if (active && enforcing)
         {
             MasterStatusDot.Fill = (Brush)FindResource("AccentSuccess");
             MasterStatusText.Text = "SHIELD ACTIVE";
@@ -584,7 +633,31 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
             HeroShieldBorder.Background = new SolidColorBrush(Color.FromArgb(0x26, 0x10, 0xB9, 0x81));
             HeroShieldTitle.Text = "Protection is Active";
-            HeroShieldSubtitle.Text = "System-wide 18+ adult web filtering & app termination enabled";
+            HeroShieldSubtitle.Text = _accountScope.DescribeScopeStatus();
+        }
+        else if (active && pausedTemp)
+        {
+            MasterStatusDot.Fill = (Brush)FindResource("AccentWarning");
+            MasterStatusText.Text = "TEMP PAUSE";
+            MasterStatusText.Foreground = (Brush)FindResource("AccentWarning");
+            MasterStatusPill.Background = new SolidColorBrush(Color.FromArgb(0x1A, 0xF5, 0x9E, 0x0B));
+            MasterStatusPill.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0xF5, 0x9E, 0x0B));
+
+            HeroShieldBorder.Background = new SolidColorBrush(Color.FromArgb(0x26, 0xF5, 0x9E, 0x0B));
+            HeroShieldTitle.Text = "Temporarily Paused";
+            HeroShieldSubtitle.Text = "DNS restored for all accounts until the pause ends";
+        }
+        else if (active)
+        {
+            MasterStatusDot.Fill = (Brush)FindResource("AccentSuccess");
+            MasterStatusText.Text = "ARMED";
+            MasterStatusText.Foreground = (Brush)FindResource("AccentSuccess");
+            MasterStatusPill.Background = new SolidColorBrush(Color.FromArgb(0x1A, 0x10, 0xB9, 0x81));
+            MasterStatusPill.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0x10, 0xB9, 0x81));
+
+            HeroShieldBorder.Background = new SolidColorBrush(Color.FromArgb(0x26, 0x02, 0x84, 0xC7));
+            HeroShieldTitle.Text = "Protection Armed";
+            HeroShieldSubtitle.Text = _accountScope.DescribeScopeStatus();
         }
         else
         {
@@ -653,21 +726,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void ApplyMasterProtectionToggle(bool target)
     {
         _configService.Config.ProtectionActive = target;
+        if (!target)
+            _configService.Config.TemporaryPauseUntilUtcTicks = null;
         _configService.SaveConfig();
-
-        if (target)
-        {
-            _hostsService.ApplyBlockRules();
-            _watchdogService.Start();
-        }
-        else
-        {
-            _hostsService.RestoreOriginal();
-            _watchdogService.Stop();
-        }
+        _enforcement.SyncNow(force: true);
 
         RefreshUI();
-        ShowToast(target ? "Parental Shield enabled." : "Parental Shield paused.", target ? "✅" : "⏸️");
+        ShowToast(target ? "Parental Shield enabled." : "Parental Shield paused — DNS restored.", target ? "✅" : "⏸️");
     }
 
     private void ToggleCategory_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -700,9 +765,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _configService.Config.BlockAdultContent = ToggleAdultWeb.IsChecked == true;
         _configService.Config.BlockGambling = ToggleGambling.IsChecked == true;
         _configService.Config.BlockMatureApps = ToggleMatureApps.IsChecked == true;
+        if (ToggleSocialMedia != null) _configService.Config.BlockSocialMedia = ToggleSocialMedia.IsChecked == true;
+        if (ToggleVpnProxy != null) _configService.Config.BlockVpnAndProxies = ToggleVpnProxy.IsChecked == true;
+        if (ToggleSafeSearch != null) _configService.Config.ForceSafeSearch = ToggleSafeSearch.IsChecked == true;
+        if (TogglePrivateBrowsing != null) _configService.Config.BlockPrivateBrowsing = TogglePrivateBrowsing.IsChecked == true;
+        if (ToggleDnsTampering != null) _configService.Config.BlockDnsTampering = ToggleDnsTampering.IsChecked == true;
         _configService.SaveConfig();
 
-        _hostsService.ApplyBlockRules();
+        _enforcement.SyncNow(force: true);
         RefreshUI();
         ShowToast("Category filters updated.", "✅");
     }
@@ -771,7 +841,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 chk.IsChecked = !chk.IsChecked;
                 site.Enabled = chk.IsChecked == true;
                 _configService.SaveConfig();
-                _hostsService.ApplyBlockRules();
+                _enforcement.SyncNow(force: true);
                 RefreshUI();
             });
         };
@@ -784,7 +854,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
             site.Enabled = chk.IsChecked == true;
             _configService.SaveConfig();
-            _hostsService.ApplyBlockRules();
+            _enforcement.SyncNow(force: true);
             RefreshUI();
         };
 
@@ -802,7 +872,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             {
                 _configService.Config.CustomWebsites.Remove(site);
                 _configService.SaveConfig();
-                _hostsService.ApplyBlockRules();
+                _enforcement.SyncNow(force: true);
                 _configService.AddLog("website", site.Domain, "Domain Removed", $"Removed {site.Domain} from blocklist.");
                 RefreshUI();
                 ShowToast($"Removed {site.Domain}", "ℹ️");
@@ -869,12 +939,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             });
 
             _configService.SaveConfig();
-            _hostsService.ApplyBlockRules();
+            _enforcement.SyncNow(force: true);
             _configService.AddLog("website", d, "Domain Added", $"Added {d} to blocked websites.");
 
             TxtNewDomain.Text = "";
             RefreshUI();
-            ShowToast($"Website '{d}' blocked across all browsers.", "✅");
+            ShowToast($"Website '{d}' blocked for protected accounts.", "✅");
         });
     }
 
@@ -1313,8 +1383,246 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     // ==========================================================================
-    // SETTINGS TAB
+    // SETTINGS TAB — accounts, bedtime, pause, advanced controls
     // ==========================================================================
+    private void RenderProtectedAccountsList()
+    {
+        if (PanelProtectedAccounts == null) return;
+        PanelProtectedAccounts.Children.Clear();
+
+        var accounts = _accountScope.GetLocalUserAccounts();
+        var selected = new HashSet<string>(
+            _configService.Config.ProtectedWindowsAccounts,
+            StringComparer.OrdinalIgnoreCase);
+
+        if (accounts.Count == 0)
+        {
+            PanelProtectedAccounts.Children.Add(new TextBlock
+            {
+                Text = "No local Windows accounts found.",
+                Foreground = (Brush)FindResource("TextFillColorTertiaryBrush"),
+                FontSize = 12.5,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            return;
+        }
+
+        foreach (var account in accounts)
+        {
+            var row = new Border
+            {
+                Background = (Brush)FindResource("ControlFillColorDefaultBrush"),
+                BorderBrush = (Brush)FindResource("CardStrokeColorDefaultBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var sp = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            sp.Children.Add(new TextBlock
+            {
+                Text = account.UserName + (account.IsCurrentUser ? " (this account)" : ""),
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 13.5,
+                Foreground = (Brush)FindResource("TextFillColorPrimaryBrush")
+            });
+            sp.Children.Add(new TextBlock
+            {
+                Text = "Child account under parental control",
+                FontSize = 11.5,
+                Foreground = (Brush)FindResource("TextFillColorTertiaryBrush"),
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+            Grid.SetColumn(sp, 0);
+
+            var chk = new CheckBox
+            {
+                IsChecked = selected.Contains(account.UserName),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            string userName = account.UserName;
+            chk.PreviewMouseLeftButtonDown += (s, e) =>
+            {
+                if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+                e.Handled = true;
+                RequireParentAuth(() =>
+                {
+                    chk.IsChecked = !chk.IsChecked;
+                    SetProtectedAccount(userName, chk.IsChecked == true);
+                });
+            };
+            chk.Click += (s, e) =>
+            {
+                if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
+                {
+                    RefreshUI();
+                    return;
+                }
+                SetProtectedAccount(userName, chk.IsChecked == true);
+            };
+            Grid.SetColumn(chk, 1);
+
+            grid.Children.Add(sp);
+            grid.Children.Add(chk);
+            row.Child = grid;
+            PanelProtectedAccounts.Children.Add(row);
+        }
+    }
+
+    private void SetProtectedAccount(string userName, bool protect)
+    {
+        var list = _configService.Config.ProtectedWindowsAccounts;
+        bool exists = list.Any(a => a.Equals(userName, StringComparison.OrdinalIgnoreCase));
+        if (protect && !exists)
+            list.Add(userName);
+        else if (!protect && exists)
+        {
+            list.RemoveAll(a => a.Equals(userName, StringComparison.OrdinalIgnoreCase));
+            _browserPolicies.ClearUserPolicies(userName);
+        }
+
+        _configService.SaveConfig();
+        _enforcement.SyncNow(force: true);
+        RefreshUI();
+        ShowToast(protect
+            ? $"'{userName}' is now a protected child account."
+            : $"'{userName}' removed — their DNS will no longer be filtered.", "✅");
+    }
+
+    private void ToggleScopeAccounts_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
+        RequireParentAuth(() =>
+        {
+            ToggleScopeAccounts.IsChecked = !ToggleScopeAccounts.IsChecked;
+            ApplyScopeToggle();
+        });
+    }
+
+    private void ToggleScopeAccounts_Click(object sender, RoutedEventArgs e)
+    {
+        if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
+        {
+            RefreshUI();
+            return;
+        }
+        ApplyScopeToggle();
+    }
+
+    private void ApplyScopeToggle()
+    {
+        _configService.Config.ScopeToProtectedAccounts = ToggleScopeAccounts.IsChecked == true;
+        _configService.SaveConfig();
+        _enforcement.SyncNow(force: true);
+        RefreshUI();
+        ShowToast(
+            _configService.Config.ScopeToProtectedAccounts
+                ? "DNS blocks only apply while protected child accounts are signed in."
+                : "Warning: machine-wide mode affects every Windows account's DNS.",
+            "ℹ️");
+    }
+
+    private void ToggleParentControl_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_securityService.HasPasscode() || _securityService.IsUnlocked) return;
+        e.Handled = true;
+        if (sender is CheckBox chk)
+        {
+            RequireParentAuth(() =>
+            {
+                chk.IsChecked = !chk.IsChecked;
+                ApplyParentControlToggles();
+            });
+        }
+    }
+
+    private void ToggleParentControl_Click(object sender, RoutedEventArgs e)
+    {
+        if (_securityService.HasPasscode() && !_securityService.IsUnlocked)
+        {
+            RefreshUI();
+            return;
+        }
+        ApplyParentControlToggles();
+    }
+
+    private void ApplyParentControlToggles()
+    {
+        if (ToggleSocialMedia != null) _configService.Config.BlockSocialMedia = ToggleSocialMedia.IsChecked == true;
+        if (ToggleVpnProxy != null) _configService.Config.BlockVpnAndProxies = ToggleVpnProxy.IsChecked == true;
+        if (ToggleSafeSearch != null) _configService.Config.ForceSafeSearch = ToggleSafeSearch.IsChecked == true;
+        if (TogglePrivateBrowsing != null) _configService.Config.BlockPrivateBrowsing = TogglePrivateBrowsing.IsChecked == true;
+        if (ToggleDnsTampering != null) _configService.Config.BlockDnsTampering = ToggleDnsTampering.IsChecked == true;
+        if (ToggleBedtime != null) _configService.Config.Bedtime.Enabled = ToggleBedtime.IsChecked == true;
+        if (ToggleBedtimeBrowsers != null) _configService.Config.Bedtime.CloseBrowsersDuringBedtime = ToggleBedtimeBrowsers.IsChecked == true;
+        _configService.SaveConfig();
+        _enforcement.SyncNow(force: true);
+        RefreshUI();
+        ShowToast("Parent control settings saved.", "✅");
+    }
+
+    private void BtnSaveBedtime_Click(object sender, RoutedEventArgs e)
+    {
+        RequireParentAuth(() =>
+        {
+            string start = TxtBedtimeStart.Text.Trim();
+            string end = TxtBedtimeEnd.Text.Trim();
+            if (!TimeSpan.TryParse(start, out _) || !TimeSpan.TryParse(end, out _))
+            {
+                ShowToast("Use 24-hour times like 21:00 and 07:00.", "⚠️");
+                return;
+            }
+            _configService.Config.Bedtime.StartTime = start;
+            _configService.Config.Bedtime.EndTime = end;
+            _configService.SaveConfig();
+            _enforcement.SyncNow(force: true);
+            RefreshUI();
+            ShowToast($"Bedtime set to {start} – {end}.", "✅");
+        });
+    }
+
+    private void BtnPause15_Click(object sender, RoutedEventArgs e) => PauseFor(15);
+    private void BtnPause60_Click(object sender, RoutedEventArgs e) => PauseFor(60);
+    private void BtnClearPause_Click(object sender, RoutedEventArgs e)
+    {
+        RequireParentAuth(() =>
+        {
+            _enforcement.ClearTemporaryPause();
+            RefreshUI();
+            ShowToast("Protection resumed.", "✅");
+        });
+    }
+
+    private void BtnRepairDns_Click(object sender, RoutedEventArgs e)
+    {
+        RequireParentAuth(() =>
+        {
+            _enforcement.RepairDns();
+            // If protection is supposed to be on for a child session, re-apply site blocks only (never DoH hosts)
+            if (_configService.Config.ProtectionActive)
+                _enforcement.SyncNow(force: true);
+            RefreshUI();
+            ShowToast("DNS repaired — hosts redirects cleared and resolver cache flushed.", "✅");
+        });
+    }
+
+    private void PauseFor(int minutes)
+    {
+        RequireParentAuth(() =>
+        {
+            _enforcement.PauseForMinutes(minutes);
+            RefreshUI();
+            ShowToast($"Protection paused for {minutes} minutes. DNS restored for everyone.", "⏸️");
+        });
+    }
+
     private void BtnChangePin_Click(object sender, RoutedEventArgs e)
     {
         RequireParentAuth(() => ShowSetupModal(isFirstRun: false));

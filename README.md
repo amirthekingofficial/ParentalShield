@@ -25,18 +25,26 @@ Traditional scripts or development servers leave an open Command Prompt or Termi
   - Auto-lock timeout after idle time (1, 3, 5, or 10 minutes) or immediately upon minimizing to the system tray.
   - Security Recovery Question flow in case you forget your PIN.
 
-- **System-Wide Browser Blocking (Chrome, Edge, Firefox, Brave)**:
-  - Writes directly to `C:\Windows\System32\drivers\etc\hosts` with loopback routing (`0.0.0.0` and `::1`).
-  - Instantly flushes the Windows DNS resolver cache via native Win32 API (`DnsFlushResolverCache`).
-  - **Anti-Bypass Protection**: Automatically disables DNS-over-HTTPS (DoH) policies in Chrome, Edge, and Brave so browsers cannot secretly query external encrypted DNS to bypass the blocklist.
+- **Account-Scoped Browser Blocking (Chrome, Edge, Firefox, Brave)**:
+  - Select which Windows accounts are protected children. Parent and other desktop accounts keep normal DNS.
+  - Hosts rules are applied only while a protected child session is signed in, then cleared automatically when those accounts log off.
+  - **DNS-safe by design**: public DNS/DoH hostnames (`dns.google`, `one.one.one.one`, etc.) are never redirected in the hosts file. Flushes happen only when hosts content actually changes. Startup always repairs leftover redirects.
+  - **Anti-Bypass Protection**: Disables DNS-over-HTTPS (DoH), Incognito/InPrivate, and forces SafeSearch in the *child account's* browser profiles only — not via machine-wide policies or hosts redirects that break other users.
+  - Built-in **Repair DNS now** button for one-click cleanup if browsing ever acts up.
   - Pre-loaded with 85+ major adult video networks, explicit chat hubs, and cam sites.
-  - Pre-loaded with online gambling, betting, and casino domains.
+  - Pre-loaded with online gambling, betting, casino, social media, and VPN/proxy domains.
   - Add any custom domain with 1-click preset chips (+TikTok, +Instagram, +Twitter, +Reddit, +Twitch, +Roblox).
+
+- **Parent Control Center**:
+  - Protected Windows account picker with live scope status.
+  - Bedtime schedule that can close browsers for child accounts overnight.
+  - Temporary pause (15 min / 1 hour) that restores DNS for everyone until it expires.
+  - Toggles for SafeSearch, private browsing, DNS bypass blocking, social media, and VPNs.
 
 - **Real-Time Application Watchdog**:
   - Background asynchronous monitor checking running processes every 1.2 seconds.
-  - Immediately terminates prohibited executables via process tree kill.
-  - Pre-configured to block unmoderated P2P torrent clients (`uTorrent`, `BitTorrent`, `qBittorrent`), unrated video chat (`Omegle`), and adult dating apps.
+  - Terminates prohibited executables only when they belong to a protected child account.
+  - Pre-configured to block unmoderated P2P torrent clients (`uTorrent`, `BitTorrent`, `qBittorrent`), unrated video chat (`Omegle`), adult dating apps, and common VPN clients.
   - **Running Apps Scanner**: Click *"Pick from Running Apps"* to see active programs on the computer and block any game with a single click.
   - Browse `.exe` button to select any file on disk.
   - Quick distraction presets for Roblox, Steam, Epic Games Launcher, Discord, and Telegram.

@@ -18,12 +18,14 @@ public class ConfigService
 
     public ConfigService()
     {
-        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        _configDir = Path.Combine(appData, "ParentalShield");
+        // Machine-wide config so parent settings apply no matter which account launches the app.
+        string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        _configDir = Path.Combine(programData, "ParentalShield");
         _configFile = Path.Combine(_configDir, "config.json");
         _logsFile = Path.Combine(_configDir, "activity_logs.json");
 
         EnsureDirectory();
+        MigrateFromPerUserAppDataIfNeeded();
         Config = LoadConfig();
         Logs = LoadLogs();
     }
@@ -33,6 +35,39 @@ public class ConfigService
         if (!Directory.Exists(_configDir))
         {
             Directory.CreateDirectory(_configDir);
+        }
+    }
+
+    /// <summary>
+    /// Older builds stored config under the parent's %AppData%. Copy once into ProgramData
+    /// so Fast User Switching / other accounts share the same rules.
+    /// </summary>
+    private void MigrateFromPerUserAppDataIfNeeded()
+    {
+        try
+        {
+            if (File.Exists(_configFile)) return;
+
+            string legacyDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "ParentalShield");
+            string legacyConfig = Path.Combine(legacyDir, "config.json");
+            string legacyLogs = Path.Combine(legacyDir, "activity_logs.json");
+
+            if (File.Exists(legacyConfig))
+            {
+                File.Copy(legacyConfig, _configFile, overwrite: false);
+                App.LogDebug("Migrated config.json from AppData to ProgramData");
+            }
+
+            if (File.Exists(legacyLogs) && !File.Exists(_logsFile))
+            {
+                File.Copy(legacyLogs, _logsFile, overwrite: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogDebug("Config migration notice: " + ex.Message);
         }
     }
 
@@ -51,7 +86,7 @@ public class ConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading config: {ex.Message}");
+            App.LogDebug($"Error loading config: {ex.Message}");
         }
         return new AppConfig();
     }
@@ -66,7 +101,7 @@ public class ConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving config: {ex.Message}");
+            App.LogDebug($"Error saving config: {ex.Message}");
         }
     }
 
