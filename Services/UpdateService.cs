@@ -27,7 +27,8 @@ public class UpdateService
             var mgr = CreateUpdateManager();
             if (!mgr.IsInstalled)
             {
-                App.LogDebug("Velopack: App is running in portable/uninstalled dev mode.");
+                // Portable / sideloaded EXE — Velopack cannot patch in place. User must install via Setup.exe.
+                App.LogDebug("Velopack: not an installed release build (portable/dev). In-app updates unavailable.");
                 return null;
             }
 
