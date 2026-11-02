@@ -77,9 +77,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         SetupSystemTray();
         App.LogDebug("SetupSystemTray completed");
 
-        // Session-aware enforcement: hosts / DoH only while protected child accounts are signed in
+        // Starts with an immediate hosts/DNS repair, then account-scoped enforcement
         _enforcement.Start();
-        App.LogDebug("Enforcement service started (account-scoped DNS)");
+        App.LogDebug("Enforcement service started (DNS-safe, account-scoped)");
 
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
@@ -1597,6 +1597,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             _enforcement.ClearTemporaryPause();
             RefreshUI();
             ShowToast("Protection resumed.", "✅");
+        });
+    }
+
+    private void BtnRepairDns_Click(object sender, RoutedEventArgs e)
+    {
+        RequireParentAuth(() =>
+        {
+            _enforcement.RepairDns();
+            // If protection is supposed to be on for a child session, re-apply site blocks only (never DoH hosts)
+            if (_configService.Config.ProtectionActive)
+                _enforcement.SyncNow(force: true);
+            RefreshUI();
+            ShowToast("DNS repaired — hosts redirects cleared and resolver cache flushed.", "✅");
         });
     }
 

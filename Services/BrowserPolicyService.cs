@@ -198,8 +198,16 @@ public class BrowserPolicyService
         using var policyKey = OpenOrCreate(root, relativePath);
         if (policyKey == null) return;
 
-        // Per-user DoH off — does not touch other accounts' DNS
-        policyKey.SetValue("DnsOverHttpsMode", "off", RegistryValueKind.String);
+        // Per-user DoH off only — NEVER via hosts file (that broke system DNS for everyone)
+        if (config.BlockDnsTampering)
+        {
+            policyKey.SetValue("DnsOverHttpsMode", "off", RegistryValueKind.String);
+        }
+        else
+        {
+            policyKey.DeleteValue("DnsOverHttpsMode", false);
+            policyKey.DeleteValue("DnsOverHttpsTemplates", false);
+        }
 
         if (config.BlockPrivateBrowsing)
         {

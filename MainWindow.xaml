@@ -722,10 +722,20 @@
                                     <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
                                         <Grid>
                                             <StackPanel VerticalAlignment="Center" Margin="0,0,80,0">
-                                                <TextBlock Text="Block DNS bypass (DoH providers)" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                                                <TextBlock Text="Only while a child is signed in — never left on for parent accounts" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
+                                                <TextBlock Text="Block browser DNS-over-HTTPS bypass" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <TextBlock Text="Child browser policy only — never redirects public DNS names in the hosts file" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ToggleDnsTampering" HorizontalAlignment="Right" IsChecked="True" Click="ToggleParentControl_Click" PreviewMouseLeftButtonDown="ToggleParentControl_PreviewMouseDown" Cursor="Hand" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Background="{DynamicResource ControlFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,14">
+                                        <Grid>
+                                            <StackPanel VerticalAlignment="Center" Margin="0,0,160,0">
+                                                <TextBlock Text="Internet / DNS repair" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <TextBlock Text="Clears leftover hosts redirects and restores normal DNS if browsing randomly breaks" FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button Content="Repair DNS now" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnRepairDns_Click"/>
                                         </Grid>
                                     </Border>
 
@@ -773,7 +783,7 @@
                                     <StackPanel Orientation="Horizontal">
                                         <Button Content="Pause 15 min" Style="{StaticResource OutlineButtonStyle}" Margin="0,0,8,0" Click="BtnPause15_Click"/>
                                         <Button Content="Pause 1 hour" Style="{StaticResource OutlineButtonStyle}" Margin="0,0,8,0" Click="BtnPause60_Click"/>
-                                        <Button Content="Resume now" Style="{StaticResource PrimaryButtonStyle}" Click="BtnClearPause_Click"/>
+                                        <Button Content="Resume now" Style="{StaticResource OutlineButtonStyle}" Margin="0,0,8,0" Click="BtnClearPause_Click"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

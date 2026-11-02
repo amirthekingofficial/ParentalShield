@@ -28,8 +28,9 @@ Traditional scripts or development servers leave an open Command Prompt or Termi
 - **Account-Scoped Browser Blocking (Chrome, Edge, Firefox, Brave)**:
   - Select which Windows accounts are protected children. Parent and other desktop accounts keep normal DNS.
   - Hosts rules are applied only while a protected child session is signed in, then cleared automatically when those accounts log off.
-  - Instantly flushes the Windows DNS resolver cache via native Win32 API (`DnsFlushResolverCache`) when rules change.
-  - **Anti-Bypass Protection**: Disables DNS-over-HTTPS (DoH), Incognito/InPrivate, and forces SafeSearch in the *child account's* browser profiles only — not via machine-wide policies that break other users.
+  - **DNS-safe by design**: public DNS/DoH hostnames (`dns.google`, `one.one.one.one`, etc.) are never redirected in the hosts file. Flushes happen only when hosts content actually changes. Startup always repairs leftover redirects.
+  - **Anti-Bypass Protection**: Disables DNS-over-HTTPS (DoH), Incognito/InPrivate, and forces SafeSearch in the *child account's* browser profiles only — not via machine-wide policies or hosts redirects that break other users.
+  - Built-in **Repair DNS now** button for one-click cleanup if browsing ever acts up.
   - Pre-loaded with 85+ major adult video networks, explicit chat hubs, and cam sites.
   - Pre-loaded with online gambling, betting, casino, social media, and VPN/proxy domains.
   - Add any custom domain with 1-click preset chips (+TikTok, +Instagram, +Twitter, +Reddit, +Twitch, +Roblox).

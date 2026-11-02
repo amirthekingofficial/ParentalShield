@@ -89,6 +89,10 @@ public class AppConfig
     public bool BlockVpnAndProxies { get; set; } = true;
     public bool ForceSafeSearch { get; set; } = true;
     public bool BlockPrivateBrowsing { get; set; } = true;
+    /// <summary>
+    /// Disables DNS-over-HTTPS in protected child browser profiles via policy only.
+    /// Must never redirect public DNS hostnames through the Windows hosts file.
+    /// </summary>
     public bool BlockDnsTampering { get; set; } = true;
 
     public BedtimeSchedule Bedtime { get; set; } = new();

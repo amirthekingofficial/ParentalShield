@@ -2,14 +2,13 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using ParentalShield.Models;
 
 namespace ParentalShield.Services;
 
 /// <summary>
 /// Periodically re-evaluates whether a protected child account is signed in and
 /// applies or clears machine hosts / per-user browser policies accordingly.
-/// This is what keeps parent-account DNS intact when kids are logged off.
+/// Debounced so flaky session detection cannot flap hosts/DNS on and off.
 /// </summary>
 public class EnforcementService : IDisposable
 {
@@ -22,6 +21,11 @@ public class EnforcementService : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
     private bool _lastEnforce;
+
+    // Require several consecutive "child online" samples before turning hosts blocks ON.
+    // Turning OFF is immediate so parent DNS is never left broken.
+    private int _enforceOnStreak;
+    private const int EnforceOnThreshold = 3;
 
     public event Action? StateChanged;
 
@@ -45,12 +49,13 @@ public class EnforcementService : IDisposable
     {
         if (_loopTask != null) return;
 
-        // One-time cleanup of legacy machine-wide DoH registry policies
+        // Always scrub leftover DoH/hosts damage from older builds before doing anything else
         _browserPolicies.ClearMachineWideDoHPolicies();
+        _hostsService.RepairDnsNow();
 
         _cts = new CancellationTokenSource();
         _loopTask = Task.Run(() => LoopAsync(_cts.Token));
-        SyncNow();
+        SyncNow(force: true);
     }
 
     public void Stop()
@@ -63,7 +68,6 @@ public class EnforcementService : IDisposable
     {
         try
         {
-            // Expire temporary pause if needed
             if (_configService.Config.TemporaryPauseUntilUtcTicks != null &&
                 !_configService.Config.IsTemporarilyPaused())
             {
@@ -71,12 +75,22 @@ public class EnforcementService : IDisposable
                 _configService.SaveConfig();
             }
 
-            bool enforce = _accountScope.ShouldEnforceNetworkBlocks();
+            bool rawEnforce = _accountScope.ShouldEnforceNetworkBlocks();
+            bool enforce = StabilizeEnforceDecision(rawEnforce, force);
+
             bool changed = enforce != _lastEnforce;
 
-            // force=true when settings change so hosts domain lists refresh even if scope state is unchanged
-            _hostsService.SyncEnforcement(force: force || changed);
-            _browserPolicies.SyncProtectedUserPolicies(enforce);
+            // When idle / protection off: repair leftovers, do not keep rewriting hosts
+            if (!enforce)
+            {
+                _hostsService.SyncEnforcement(force: false);
+                _browserPolicies.SyncProtectedUserPolicies(false);
+            }
+            else
+            {
+                _hostsService.SyncEnforcement(force: force || changed);
+                _browserPolicies.SyncProtectedUserPolicies(true);
+            }
 
             if (enforce)
             {
@@ -89,7 +103,6 @@ public class EnforcementService : IDisposable
             }
             else
             {
-                // Keep watchdog running so we can still scope-check; it no-ops for non-protected owners
                 if (_configService.Config.ProtectionActive && !_configService.Config.IsTemporarilyPaused())
                     _watchdog.Start();
                 else
@@ -101,7 +114,7 @@ public class EnforcementService : IDisposable
             {
                 App.LogDebug(enforce
                     ? "Enforcement ON — protected child session active"
-                    : "Enforcement OFF — hosts cleared for other accounts' DNS");
+                    : "Enforcement OFF — hosts left clean for normal DNS");
                 StateChanged?.Invoke();
             }
         }
@@ -111,13 +124,40 @@ public class EnforcementService : IDisposable
         }
     }
 
+    private bool StabilizeEnforceDecision(bool rawEnforce, bool force)
+    {
+        // Master switch off / pause / no protected accounts → drop immediately
+        if (!rawEnforce)
+        {
+            _enforceOnStreak = 0;
+            return false;
+        }
+
+        // Forced sync from UI (user just enabled protection) — honor immediately
+        if (force && _configService.Config.ProtectionActive)
+        {
+            // Still respect account scope: force only skips debounce when raw says ON
+            _enforceOnStreak = EnforceOnThreshold;
+            return true;
+        }
+
+        _enforceOnStreak++;
+        if (_enforceOnStreak >= EnforceOnThreshold)
+            return true;
+
+        // Not enough consecutive positives — keep previous OFF state (or stay off)
+        App.LogDebug($"Enforce debounce: child session probe {_enforceOnStreak}/{EnforceOnThreshold}");
+        return _lastEnforce && rawEnforce;
+    }
+
     private async Task LoopAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             try
             {
-                SyncNow();
+                // Never pass force here — periodic loop must not rewrite hosts unless state changes
+                SyncNow(force: false);
             }
             catch (Exception ex)
             {
@@ -126,7 +166,8 @@ public class EnforcementService : IDisposable
 
             try
             {
-                await Task.Delay(4000, token);
+                // Slower loop reduces DNS churn if anything still flaps
+                await Task.Delay(8000, token);
             }
             catch (TaskCanceledException)
             {
@@ -170,19 +211,39 @@ public class EnforcementService : IDisposable
         _configService.Config.TemporaryPauseUntilUtcTicks =
             DateTime.UtcNow.AddMinutes(Math.Max(1, minutes)).Ticks;
         _configService.SaveConfig();
-        SyncNow();
+        SyncNow(force: true);
     }
 
     public void ClearTemporaryPause()
     {
         _configService.Config.TemporaryPauseUntilUtcTicks = null;
         _configService.SaveConfig();
-        SyncNow();
+        SyncNow(force: true);
+    }
+
+    /// <summary>Parent-triggered emergency DNS repair (hosts + HKLM DoH leftovers).</summary>
+    public void RepairDns()
+    {
+        _enforceOnStreak = 0;
+        _lastEnforce = false;
+        _browserPolicies.ClearMachineWideDoHPolicies();
+        _hostsService.RepairDnsNow();
+        _browserPolicies.SyncProtectedUserPolicies(false);
+        StateChanged?.Invoke();
     }
 
     public void Dispose()
     {
         Stop();
+        // On shutdown of the service object, leave hosts clean if we are not enforcing
+        try
+        {
+            if (!_accountScope.ShouldEnforceNetworkBlocks())
+                _hostsService.RepairDnsNow();
+        }
+        catch
+        {
+        }
         _cts?.Dispose();
     }
 }
